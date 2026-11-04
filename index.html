@@ -67,7 +67,7 @@ td.l small{display:block}
 </style>
 <main>
 <header>
- <div><h1>Koormustesti seis</h1><p class="sub">ljvis2-test · uuendatud 21:30 (Eesti aeg) · 14 lõiku alates 18:00</p></div>
+ <div><h1>Koormustesti seis</h1><p class="sub">ljvis2-test · viimane lõik lõppes <b>21:30</b> (Eesti aeg) · <span id="fresh" data-end="2026-11-04T19:30:00.000Z">…</span> · 14 lõiku alates 18:00</p></div>
  <div class="pods"><span class="pod"><i></i>erru-xml-adapter<b>Healthy</b></span><span class="pod"><i></i>ruuter<b>Healthy</b></span><span class="pod"><i></i>ruuter-internal<b>Healthy</b></span></div>
 </header>
 <section class="kpis">
@@ -116,4 +116,9 @@ td.l small{display:block}
 <tr><td class="l">18:07<small>18:00–18:07</small></td><td>891</td><td>892</td><td>91</td><td>329</td><td>460</td><td>2931</td><td>928</td><td>674</td><td class="ok">0</td><td>115</td></tr>
 </tbody></table></div>
 <p class="note">Sisse on ruuter-internal-test'i POST /erru/{nu,ctud,cgr,ncr}/inbound-request, välja erru-xml-adapter-test'i valmis saadetud kirjed. Ø ajad on kaalutud saadete või päringute arvuga. Tühi (–) tähendab, et ruuteri logi selle akna kohta oli ringi pööratud ja numbrit ei saanud usaldusväärselt lugeda. Vigade veerus on ruuteri 5xx, välja arvatud cron archive-deleted-forms (teadaolev, koormusega mitteseotud). Esimesed read on pikemad aknad, hilisemad on 15-minutilised.</p>
+<script>
+(function(){var el=document.getElementById('fresh');if(!el)return;var end=Date.parse(el.dataset.end);
+function t(){var m=Math.floor((Date.now()-end)/60000);var late=m>20;el.textContent=(m<1?'äsja':m+' min tagasi')+(late?' · uut lõiku ootab '+(m-15)+' min, võib olla tõrge':'');el.style.color=late?'var(--bad)':'var(--ok)';el.style.fontWeight='600'}
+t();setInterval(t,15000);setTimeout(function(){location.reload()},120000)})();
+</script>
 </main>
