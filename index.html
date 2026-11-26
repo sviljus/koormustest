@@ -177,8 +177,8 @@ const sum = a => a.reduce((s, v) => s + (v || 0), 0);
 const lastNonNull = a => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return i; return -1; };
 const firstNonNull = a => a.findIndex(v => v != null);
 function range(i) { const r = R(); return hm(r.t[i]) + "–" + hm(new Date(ms(r.t[i]) + r.step * 1000).toISOString()); }
-function errTotal(i) { return Object.values(R().errors).reduce((s, a) => s + (a[i] || 0), 0); }
-function errSeries() { return R().t.map((_, i) => Object.values(R().errors).every(a => a[i] == null) ? null : errTotal(i)); }
+function errTotal(i) { return R().incidents[i] || 0; }          // üks viga = üks juht
+function errSeries() { return R().incidents.slice(); }
 function niceTicks(max) {
   if (!(max > 0)) return {max: 1, ticks: [0, 1]};
   const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
@@ -363,7 +363,7 @@ function renderKpis() {
       "Sisse = nende ahelate resqli päringud · Välja = edukad vastused" + (lr >= 0 ? " · p95 " + fmtMs(r.lat.resql.p95[lr]) : "")),
     sqlTile(r),
     slowTile(r),
-    tile("err" + (errs ? " bad" : ""), "⚠ Vigu (5xx ja ERROR)", fmtN(errs),
+    tile("err" + (errs ? " bad" : ""), "⚠ Vigu (juhtu)", fmtN(errs),
       fmtN(warns) + " hoiatust · " + fmtN(c4) + " × 4xx",
       {role: "button", tabindex: 0, title: "Ava vigade nimekiri", onclick: () => jumpToErrors(),
        onkeydown: e => { if (e.key === "Enter" || e.key === " ") jumpToErrors(); }}));
@@ -387,10 +387,10 @@ function chartDefs() {
     {id: "c1", title: "Päringuid minutis", hint: "Ämbri keskmine, ümardatud täisarvuks. Sisse = adapteri POST /erru/xml, välja = adapteri /xml-out/*.",
       kind: "line", series: c1, unit: "req/min", fmt: v => fmtN(v), aria: "Päringuid ja vastuseid minutis", tip: rows(c1, v => v == null ? "–" : fmtN(v) + " req/min"),
       legend: legend(c1), note: null},
-    {id: "c2", title: "⚠ Vead", hint: "5xx vastused ja ERROR-read ämbri kohta. Klõpsa tulpa, et näha põhjuseid.",
+    {id: "c2", title: "⚠ Vead", hint: "Vigu (juhte) ämbri kohta. Sama viga adapteris ja ruuter-internalis loetakse üheks. Klõpsa tulpa, et näha põhjuseid.",
       kind: "col", series: [mk("Vigu kokku", "var(--crit)", ev)], unit: "vigu", fmt: v => fmtN(v), aria: "Vigade arv ajaakna kohta",
-      tip: i => [{name: "Vigu kokku", color: "var(--crit)", value: ev[i] == null ? "–" : fmtN(ev[i])},
-        ...Object.entries(r.errors).map(([k, a]) => ({name: SVC[k], color: null, value: fmtN(a[i])}))],
+      tip: i => [{name: "Vigu (juhte)", color: "var(--crit)", value: ev[i] == null ? "–" : fmtN(ev[i])},
+        ...Object.entries(r.errors).filter(([k, a]) => a[i]).map(([k, a]) => ({name: "sündmusi: " + SVC[k], color: null, value: fmtN(a[i])}))],
       legend: null, onSelect: () => { TAB = ERRS ? "err" : "ep"; }},
     {id: "c3", title: "Vastuseaeg (p95)", hint: "95% päringutest oli selle ajaga valmis või kiirem.",
       kind: "line", series: c3, unit: "ms", fmt: v => fmtN(v), aria: "Vastuseaja p95 millisekundites", tip: rows(c3, v => v == null ? "–" : fmtMs(v)),
@@ -480,11 +480,12 @@ function errorList(items) {
       onkeydown: ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open ? OPEN.delete(key) : OPEN.add(key); renderPanel(); } }},
       h("td", {}, (open ? "▾ " : "▸ ") + hms(x.ts)),
       h("td", {class: "l"}, h("span", {class: "sev " + x.kind}, x.kind === "error" ? "⚠ Viga" : "! Hoiatus")),
-      h("td", {class: "l"}, SVC[x.svc]),
+      h("td", {class: "l"}, (x.svcs || [x.svc]).map(k => SVC[k]).join(" + ")),
       h("td", {class: "route l", title: x.route || x.msg}, x.route ? (x.m || "") + " " + x.route : (x.msg || "")),
       h("td", {}, x.st != null ? String(x.st) : "–"), h("td", {}, x.ms != null ? fmtMs(x.ms) : "–")));
     if (open) rows.push(h("tr", {class: "detail"}, h("td", {colspan: 6},
       x.msg ? h("pre", {}, x.msg) : null,
+      x.events && x.events.length > 1 ? eventsTable(x) : null,
       h("div", {}, "Trace: ", h("code", {}, x.tr || "puudub")),
       x.chain && x.chain.length ? chainTable(x) : h("p", {class: "note"}, x.tr ? "Ahela sündmusi logis ei leitud (logi pöördus ringi)." : "Sellel real puudub trace-id.")
     )));
@@ -492,6 +493,13 @@ function errorList(items) {
   return h("div", {class: "tw"}, h("table", {},
     h("thead", {}, h("tr", {}, h("th", {}, "Aeg"), h("th", {class: "l"}, "Tase"), h("th", {class: "l"}, "Teenus"), h("th", {class: "l"}, "Päring / teade"), h("th", {}, "Staatus"), h("th", {}, "Kestus"))),
     h("tbody", {}, rows)));
+}
+function eventsTable(x) {
+  return h("table", {},
+    h("thead", {}, h("tr", {}, h("th", {}, "Aeg"), h("th", {class: "l"}, "Teenus"), h("th", {class: "l"}, "Sündmus"), h("th", {}, "Staatus"), h("th", {}, "Kestus"))),
+    h("tbody", {}, x.events.map(c => h("tr", {}, h("td", {}, hms(c.ts)), h("td", {class: "l"}, SVC[c.svc]),
+      h("td", {class: "l"}, c.msg ? (c.lvl || "") + ": " + c.msg : (c.m || "") + " " + (c.route || "")),
+      h("td", {class: c.st >= 500 ? "e" : ""}, c.st != null ? String(c.st) : "–"), h("td", {}, c.ms != null ? fmtMs(c.ms) : "–")))));
 }
 function chainTable(x) {
   const base = ms(x.chain[0].ts);
@@ -527,7 +535,7 @@ function tickStatus() {
 function renderFoot() {
   const c = DATA.coverage;
   document.getElementById("foot").replaceChildren(
-    h("p", {}, "Vea mõiste: 5xx vastus või ERROR-taseme logirida. 4xx-vastused ja WARN-read loetakse eraldi. Päringu ahel seotakse trace-id järgi."),
+    h("p", {}, "Vea mõiste: 5xx vastus või ERROR-taseme logirida. Üks viga on üks juht: sama sõnumi viga adapteris ja ruuter-internalis (sama ajahetk ja sõnumitüüp) loetakse üheks. 4xx-vastused ja WARN-read loetakse eraldi."),
     h("p", {}, "Ruuter-internali ja resqli ERRU-kaardid hõlmavad ainult ahelaid, mis algavad /erru/xtr/inbound/… päringuga (worker, cron ja X-tee openapi jäävad välja). " +
       "Ruuter-internali „välja“ on nende ahelate väljaminevad HTTP-kutsed (resql, adapter, teavitused). Resqli kaardid ja DB vastuseaja graafik loevad ainult nende ahelate HTTP-päringuid (keskmine on kaalutud päringute arvuga). Vana adapteri otsekutsed jäävad välja. Aeglased päringud (> 1 s) tulevad resqli hoiatustest ja nende allikas on tuvastatud päringu tekstis oleva töö nime järgi."),
     h("p", {}, "Andmed pärinevad teenuste logidest, mida koguti Argo CD kaudu, ja on koondatud alates " + hm(DATA.dataFrom) +
