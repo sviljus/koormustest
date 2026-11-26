@@ -53,7 +53,8 @@ button:focus-visible,svg:focus-visible,summary:focus-visible,tr:focus-visible,se
 .io-row{display:flex;flex-wrap:wrap;gap:10px 22px;margin:8px 0 6px}
 .m{display:flex;align-items:center;gap:10px}
 .m b{display:block;font-size:26px;line-height:1.1;font-weight:650}
-.m .lb{font-size:12px;color:var(--ink2)}
+.m .lb{display:block;font-size:12px;color:var(--ink2)}
+.m .rate{display:block;font-size:13px;font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums}
 .ic{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;border:1px solid var(--ring);background:var(--hover);flex:none}
 .ic svg{width:18px;height:18px}
 .ic.in svg{stroke:var(--s1)}
@@ -206,7 +207,7 @@ function drawChart(host, cfg) {
   host.replaceChildren();
   const r = R(), n = r.t.length;
   const W = Math.max(280, host.clientWidth), H = 232;
-  const m = {l: cfg.kind === "col" ? 44 : 46, r: cfg.kind === "line" ? 54 : 14, t: 10, b: 26};
+  const m = {l: cfg.kind === "col" ? 44 : 46, r: cfg.kind === "line" ? 54 : 14, t: 24, b: 26};
   const pw = W - m.l - m.r, ph = H - m.t - m.b, bw = pw / Math.max(n, 1);
   const vmax = Math.max(0, ...cfg.series.flatMap(s => s.vals.filter(v => v != null)));
   const {max, ticks} = niceTicks(vmax);
@@ -226,6 +227,7 @@ function drawChart(host, cfg) {
     }
   }
   // ruudustik ja telgede sildid
+  if (cfg.unit) sv("text", {x: m.l - 8, y: 10, "text-anchor": "end", style: "font-weight:600"}, svg).textContent = cfg.unit;
   for (const v of ticks) {
     sv("line", {x1: m.l, x2: m.l + pw, y1: Y(v), y2: Y(v), stroke: v === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1}, svg);
     sv("text", {x: m.l - 8, y: Y(v) + 4, "text-anchor": "end"}, svg).textContent = nf.format(v);
@@ -311,19 +313,20 @@ function renderKpis() {
   };
   const metric = (kind, label, total, rpm) => h("div", {class: "m"},
     h("span", {class: "ic " + kind, title: label}, arrow(kind)),
-    h("div", {}, h("b", {}, fmtN(total)), h("span", {class: "lb"}, label + (rpm != null ? " · " + fmtN(rpm) + " req/min" : ""))));
+    h("div", {}, h("b", {}, fmtN(total)), h("span", {class: "lb"}, label + " kokku"),
+      rpm != null ? h("span", {class: "rate", title: "Viimase ajaakna keskmine"}, fmtN(rpm) + " req/min") : null));
   const last = (a, i) => i >= 0 ? a[i] : null;
   const sqlTile = r => {
     const n = r.sql.n, ok = n.map((v, i) => v != null ? i : -1).filter(i => i >= 0);
     const tot = sum(n), mins = sum(ok.map(i => r.mins[i])), msTot = sum(r.sql.ms_sum);
     const li2 = ok.length ? ok[ok.length - 1] : -1;
     const lastMean = li2 >= 0 && n[li2] ? r.sql.ms_sum[li2] / n[li2] : null;
-    return h("div", {class: "kpi io"}, h("p", {}, "resql · kõik SQL-päringud"),
+    return h("div", {class: "kpi io"}, h("p", {}, "resql · SQL-päringud"),
       h("div", {class: "io-row"},
         h("div", {class: "m"}, h("div", {}, h("b", {}, fmtN(tot)), h("span", {class: "lb"}, "Päringuid kokku"))),
         h("div", {class: "m"}, h("div", {}, h("b", {}, tot ? fmtMs(msTot / tot) : "–"), h("span", {class: "lb"}, "Keskmine kestus"))),
         h("div", {class: "m"}, h("div", {}, h("b", {}, mins ? fmtN(tot / mins) : "–"), h("span", {class: "lb"}, "req/min (keskmine)")))),
-      h("small", {}, "Kõik resqli päringud, mitte ainult ERRU" + (li2 >= 0 ? " · viimane aken: " + fmtN(Math.round(n[li2] / r.mins[li2])) + " req/min, " + (lastMean != null ? fmtMs(lastMean) : "–") : "")));
+      h("small", {}, "Ainult uue adapteri (xtr/inbound) ahelad" + (li2 >= 0 ? " · viimane aken: " + fmtN(Math.round(n[li2] / r.mins[li2])) + " req/min, " + (lastMean != null ? fmtMs(lastMean) : "–") : "")));
   };
   const E = r.erru, lri = lastNonNull(E.ri_in.rpm), lrs = lastNonNull(E.rs_in.rpm);
   const ioTile = (title, a, b, small) => h("div", {class: "kpi io"}, h("p", {}, title),
@@ -361,18 +364,18 @@ function chartDefs() {
   const ev = errSeries();
   return [
     {id: "c1", title: "Päringuid minutis", hint: "Ämbri keskmine, ümardatud täisarvuks. Sisse = adapteri POST /erru/xml, välja = adapteri /xml-out/*.",
-      kind: "line", series: c1, fmt: v => fmtN(v), aria: "Päringuid ja vastuseid minutis", tip: rows(c1, v => v == null ? "–" : fmtN(v) + " req/min"),
+      kind: "line", series: c1, unit: "req/min", fmt: v => fmtN(v), aria: "Päringuid ja vastuseid minutis", tip: rows(c1, v => v == null ? "–" : fmtN(v) + " req/min"),
       legend: legend(c1), note: null},
     {id: "c2", title: "⚠ Vead", hint: "5xx vastused ja ERROR-read ämbri kohta. Klõpsa tulpa, et näha põhjuseid.",
-      kind: "col", series: [mk("Vigu kokku", "var(--crit)", ev)], fmt: v => fmtN(v), aria: "Vigade arv ajaakna kohta",
+      kind: "col", series: [mk("Vigu kokku", "var(--crit)", ev)], unit: "vigu", fmt: v => fmtN(v), aria: "Vigade arv ajaakna kohta",
       tip: i => [{name: "Vigu kokku", color: "var(--crit)", value: ev[i] == null ? "–" : fmtN(ev[i])},
         ...Object.entries(r.errors).map(([k, a]) => ({name: SVC[k], color: null, value: fmtN(a[i])}))],
       legend: null, onSelect: () => { TAB = ERRS ? "err" : "ep"; }},
     {id: "c3", title: "Vastuseaeg (p95)", hint: "95% päringutest oli selle ajaga valmis või kiirem.",
-      kind: "line", series: c3, fmt: v => fmtN(v), aria: "Vastuseaja p95 millisekundites", tip: rows(c3, v => v == null ? "–" : fmtMs(v)),
+      kind: "line", series: c3, unit: "ms", fmt: v => fmtN(v), aria: "Vastuseaja p95 millisekundites", tip: rows(c3, v => v == null ? "–" : fmtMs(v)),
       legend: legend(c3), note: covNote("Ruuter-internal", r.lat.ruuter_internal.p95)},
-    {id: "c4", title: "DB vastuseaeg (resql)", hint: "Resqli HTTP-päringu kestus millisekundites.",
-      kind: "line", series: c4, fmt: v => fmtN(v), aria: "DB vastuseaeg millisekundites", tip: rows(c4, v => v == null ? "–" : fmtMs(v)),
+    {id: "c4", title: "DB vastuseaeg (resql)", hint: "Resqli HTTP-päringu kestus (uue adapteri xtr/inbound ahelad).",
+      kind: "line", series: c4, unit: "ms", fmt: v => fmtN(v), aria: "DB vastuseaeg millisekundites", tip: rows(c4, v => v == null ? "–" : fmtMs(v)),
       legend: legend(c4), note: covNote("Resql", r.lat.resql.p95)},
   ];
 }
@@ -505,7 +508,7 @@ function renderFoot() {
   document.getElementById("foot").replaceChildren(
     h("p", {}, "Vea mõiste: 5xx vastus või ERROR-taseme logirida. 4xx-vastused ja WARN-read loetakse eraldi. Päringu ahel seotakse trace-id järgi."),
     h("p", {}, "Ruuter-internali ja resqli ERRU-kaardid hõlmavad ainult ahelaid, mis algavad /erru/xtr/inbound/… päringuga (worker, cron ja X-tee openapi jäävad välja). " +
-      "Ruuter-internali „välja“ on nende ahelate väljaminevad HTTP-kutsed (resql, adapter, teavitused). SQL-päringute kaart loeb kõiki resqli HTTP-päringuid ja keskmine on kaalutud päringute arvuga."),
+      "Ruuter-internali „välja“ on nende ahelate väljaminevad HTTP-kutsed (resql, adapter, teavitused). Resqli kaardid ja DB vastuseaja graafik loevad ainult nende ahelate HTTP-päringuid (keskmine on kaalutud päringute arvuga). Vana adapteri otsekutsed jäävad välja."),
     h("p", {}, "Andmed pärinevad teenuste logidest, mida koguti Argo CD kaudu, ja on koondatud alates " + hm(DATA.dataFrom) +
       " (Eesti aeg). Pooleli oleva ajaakna req/min arvutatakse seni kaetud ajast."),
     h("p", {}, "Hall taust graafikul tähistab kogumislünka. Tühi koht joonel tähendab, et andmeid pole, mitte et väärtus oli null."));
