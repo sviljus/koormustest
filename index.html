@@ -44,11 +44,20 @@ header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-co
 .seg button[aria-pressed=true]{color:var(--ink);font-weight:600;background:var(--sel)}
 .seg button[aria-pressed=true]::before{content:"✓ ";font-weight:700}
 button:focus-visible,svg:focus-visible,summary:focus-visible,tr:focus-visible,select:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-bottom:12px}
 .kpi{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:14px 16px}
 .kpi p{margin:0;color:var(--ink2);font-size:12.5px}
 .kpi strong{display:block;font-size:30px;line-height:1.15;margin-top:4px;font-weight:650}
 .kpi small{color:var(--ink2);font-size:12px}
+.kpi.io{grid-column:span 1}
+.io-row{display:flex;flex-wrap:wrap;gap:10px 22px;margin:8px 0 6px}
+.m{display:flex;align-items:center;gap:10px}
+.m b{display:block;font-size:26px;line-height:1.1;font-weight:650}
+.m .lb{font-size:12px;color:var(--ink2)}
+.ic{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;border:1px solid var(--ring);background:var(--hover);flex:none}
+.ic svg{width:18px;height:18px}
+.ic.in svg{stroke:var(--s1)}
+.ic.out svg{stroke:var(--s2)}
 .kpi.err{cursor:pointer}
 .kpi.err:hover{background:var(--hover)}
 .kpi.bad strong{color:var(--crit)}
@@ -295,15 +304,32 @@ function renderKpis() {
   const lr = lastNonNull(r.lat.resql.p95), lq = lastNonNull(r.lat.ruuter_internal.p95);
   const el = document.getElementById("kpis");
   const tile = (cls, label, value, small, attrs) => h("div", {class: "kpi " + cls, ...attrs}, h("p", {}, label), h("strong", {}, value), h("small", {}, small));
+  const arrow = kind => {                       // sisse = nool alla alusele, välja = nool üles alusest
+    const s = sv("svg", {viewBox: "0 0 24 24", fill: "none", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true"});
+    sv("path", {d: kind === "in" ? "M12 4v10m0 0-4-4m4 4 4-4M5 19h14" : "M12 15V5m0 0-4 4m4-4 4 4M5 19h14"}, s);
+    return s;
+  };
+  const metric = (kind, label, total, rpm) => h("div", {class: "m"},
+    h("span", {class: "ic " + kind, title: label}, arrow(kind)),
+    h("div", {}, h("b", {}, fmtN(total)), h("span", {class: "lb"}, label + (rpm != null ? " · " + fmtN(rpm) + " req/min" : ""))));
+  const last = (a, i) => i >= 0 ? a[i] : null;
+  const E = r.erru, lri = lastNonNull(E.ri_in.rpm), lrs = lastNonNull(E.rs_in.rpm);
+  const ioTile = (title, a, b, small) => h("div", {class: "kpi io"}, h("p", {}, title),
+    h("div", {class: "io-row"}, a, b), h("small", {}, small));
   el.replaceChildren(
-    tile("", "Sisse tulnud päringuid", fmtN(tIn), li >= 0 ? "viimane aken: " + fmtN(r.rpm_in[li]) + " req/min" : ""),
-    tile("", "Saadetud vastuseid", fmtN(tOut), li >= 0 ? "viimane aken: " + fmtN(r.rpm_out[li]) + " req/min" : ""),
+    ioTile("erru-xml-adapter",
+      metric("in", "Sisse", tIn, last(r.rpm_in, li)), metric("out", "Välja", tOut, last(r.rpm_out, li)),
+      "Sisse = POST /erru/xml · Välja = /xml-out/*"),
+    ioTile("ruuter-internal · ERRU",
+      metric("in", "Sisse", sum(E.ri_in.n), last(E.ri_in.rpm, lri)), metric("out", "Välja", sum(E.ri_out.n), last(E.ri_out.rpm, lri)),
+      "Sisse = ERRU päringud · Välja = väljaminevad HTTP-kutsed" + (lq >= 0 ? " · p95 " + fmtMs(r.lat.ruuter_internal.p95[lq]) : "")),
+    ioTile("resql · ERRU",
+      metric("in", "Sisse", sum(E.rs_in.n), last(E.rs_in.rpm, lrs)), metric("out", "Välja", sum(E.rs_out.n), last(E.rs_out.rpm, lrs)),
+      "Sisse = päringud · Välja = edukad vastused" + (lr >= 0 ? " · p95 " + fmtMs(r.lat.resql.p95[lr]) : "")),
     tile("err" + (errs ? " bad" : ""), "⚠ Vigu (5xx ja ERROR)", fmtN(errs),
       fmtN(warns) + " hoiatust · " + fmtN(c4) + " × 4xx",
       {role: "button", tabindex: 0, title: "Ava vigade nimekiri", onclick: () => jumpToErrors(),
-       onkeydown: e => { if (e.key === "Enter" || e.key === " ") jumpToErrors(); }}),
-    tile("", "Ruuter-internal p95", lq >= 0 ? fmtMs(r.lat.ruuter_internal.p95[lq]) : "–", lq >= 0 ? "max " + fmtMs(r.lat.ruuter_internal.max[lq]) : "andmed puuduvad"),
-    tile("", "DB vastus p95 (resql)", lr >= 0 ? fmtMs(r.lat.resql.p95[lr]) : "–", lr >= 0 ? "max " + fmtMs(r.lat.resql.max[lr]) : "andmed puuduvad"));
+       onkeydown: e => { if (e.key === "Enter" || e.key === " ") jumpToErrors(); }}));
 }
 function legend(items) {
   return h("div", {class: "legend"}, items.map(it => h("span", {}, h("i", {style: "border-color:" + it.color}), it.name)));
@@ -465,6 +491,8 @@ function renderFoot() {
   const c = DATA.coverage;
   document.getElementById("foot").replaceChildren(
     h("p", {}, "Vea mõiste: 5xx vastus või ERROR-taseme logirida. 4xx-vastused ja WARN-read loetakse eraldi. Päringu ahel seotakse trace-id järgi."),
+    h("p", {}, "ERRU-seotud päring: ahelas on vähemalt üks /erru/… päring. Cron, X-tee openapi ja muud mitte-ERRU kutsed jäävad kaartidelt välja. " +
+      "Ruuter-internali „välja“ on ERRU ahelates tehtud väljaminevad HTTP-kutsed (resql, adapter, teavitused)."),
     h("p", {}, "Andmed pärinevad teenuste logidest, mida koguti Argo CD kaudu, ja on koondatud alates " + hm(DATA.dataFrom) +
       " (Eesti aeg). Pooleli oleva ajaakna req/min arvutatakse seni kaetud ajast."),
     h("p", {}, "Hall taust graafikul tähistab kogumislünka. Tühi koht joonel tähendab, et andmeid pole, mitte et väärtus oli null."));
