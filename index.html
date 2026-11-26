@@ -316,6 +316,26 @@ function renderKpis() {
     h("div", {}, h("b", {}, fmtN(total)), h("span", {class: "lb"}, label + " kokku"),
       rpm != null ? h("span", {class: "rate", title: "Viimase ajaakna keskmine"}, fmtN(rpm) + " req/min") : null));
   const last = (a, i) => i >= 0 ? a[i] : null;
+  const slowTile = r => {
+    const S = r.slow, ok = S.n.map((v, i) => v != null ? i : -1).filter(i => i >= 0);
+    const tot = sum(S.n), mins = sum(ok.map(i => r.mins[i])), old = sum(S.old), unk = sum(S.unknown);
+    const max = Math.max(0, ...S.max.filter(v => v != null));
+    const lab = S.labels[0];
+    const extra = [];
+    if (old) extra.push(fmtN(old) + " vana adapteri päringut välja jäetud");
+    if (unk) extra.push(fmtN(unk) + " tundmatu allikaga välja jäetud");
+    return h("div", {class: "kpi io"}, h("p", {}, "resql · aeglased SQL-päringud (> 1 s)"),
+      !S.from ? h("p", {class: "empty"}, "Andmeid veel pole.") :
+      h("div", {class: "io-row"},
+        h("div", {class: "m"}, h("div", {}, h("b", {}, fmtN(tot)), h("span", {class: "lb"}, "Päringuid kokku"),
+          mins ? h("span", {class: "rate"}, nf1.format(tot / mins) + " req/min") : null)),
+        h("div", {class: "m"}, h("div", {}, h("b", {}, lab ? fmtMs(lab.med) : "–"), h("span", {class: "lb"}, "Mediaan"),
+          lab ? h("span", {class: "rate"}, "p95 " + fmtMs(lab.p95)) : null)),
+        h("div", {class: "m"}, h("div", {}, h("b", {}, max ? fmtMs(max) : "–"), h("span", {class: "lb"}, "Pikim")))),
+      h("small", {}, "Ainult uue adapteri päringud (allikas tuvastatud päringu tekstist)" +
+        (lab ? " · " + lab.label : "") + (S.from ? " · andmed alates " + hm(S.from) : "") +
+        (extra.length ? " · " + extra.join(", ") : "")));
+  };
   const sqlTile = r => {
     const n = r.sql.n, ok = n.map((v, i) => v != null ? i : -1).filter(i => i >= 0);
     const tot = sum(n), mins = sum(ok.map(i => r.mins[i])), msTot = sum(r.sql.ms_sum);
@@ -342,6 +362,7 @@ function renderKpis() {
       metric("in", "Sisse", sum(E.rs_in.n), last(E.rs_in.rpm, lrs)), metric("out", "Välja", sum(E.rs_out.n), last(E.rs_out.rpm, lrs)),
       "Sisse = nende ahelate resqli päringud · Välja = edukad vastused" + (lr >= 0 ? " · p95 " + fmtMs(r.lat.resql.p95[lr]) : "")),
     sqlTile(r),
+    slowTile(r),
     tile("err" + (errs ? " bad" : ""), "⚠ Vigu (5xx ja ERROR)", fmtN(errs),
       fmtN(warns) + " hoiatust · " + fmtN(c4) + " × 4xx",
       {role: "button", tabindex: 0, title: "Ava vigade nimekiri", onclick: () => jumpToErrors(),
@@ -508,7 +529,7 @@ function renderFoot() {
   document.getElementById("foot").replaceChildren(
     h("p", {}, "Vea mõiste: 5xx vastus või ERROR-taseme logirida. 4xx-vastused ja WARN-read loetakse eraldi. Päringu ahel seotakse trace-id järgi."),
     h("p", {}, "Ruuter-internali ja resqli ERRU-kaardid hõlmavad ainult ahelaid, mis algavad /erru/xtr/inbound/… päringuga (worker, cron ja X-tee openapi jäävad välja). " +
-      "Ruuter-internali „välja“ on nende ahelate väljaminevad HTTP-kutsed (resql, adapter, teavitused). Resqli kaardid ja DB vastuseaja graafik loevad ainult nende ahelate HTTP-päringuid (keskmine on kaalutud päringute arvuga). Vana adapteri otsekutsed jäävad välja."),
+      "Ruuter-internali „välja“ on nende ahelate väljaminevad HTTP-kutsed (resql, adapter, teavitused). Resqli kaardid ja DB vastuseaja graafik loevad ainult nende ahelate HTTP-päringuid (keskmine on kaalutud päringute arvuga). Vana adapteri otsekutsed jäävad välja. Aeglased päringud (> 1 s) tulevad resqli hoiatustest ja nende allikas on tuvastatud päringu tekstis oleva töö nime järgi."),
     h("p", {}, "Andmed pärinevad teenuste logidest, mida koguti Argo CD kaudu, ja on koondatud alates " + hm(DATA.dataFrom) +
       " (Eesti aeg). Pooleli oleva ajaakna req/min arvutatakse seni kaetud ajast."),
     h("p", {}, "Hall taust graafikul tähistab kogumislünka. Tühi koht joonel tähendab, et andmeid pole, mitte et väärtus oli null."));
