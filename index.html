@@ -313,6 +313,18 @@ function renderKpis() {
     h("span", {class: "ic " + kind, title: label}, arrow(kind)),
     h("div", {}, h("b", {}, fmtN(total)), h("span", {class: "lb"}, label + (rpm != null ? " · " + fmtN(rpm) + " req/min" : ""))));
   const last = (a, i) => i >= 0 ? a[i] : null;
+  const sqlTile = r => {
+    const n = r.sql.n, ok = n.map((v, i) => v != null ? i : -1).filter(i => i >= 0);
+    const tot = sum(n), mins = sum(ok.map(i => r.mins[i])), msTot = sum(r.sql.ms_sum);
+    const li2 = ok.length ? ok[ok.length - 1] : -1;
+    const lastMean = li2 >= 0 && n[li2] ? r.sql.ms_sum[li2] / n[li2] : null;
+    return h("div", {class: "kpi io"}, h("p", {}, "resql · kõik SQL-päringud"),
+      h("div", {class: "io-row"},
+        h("div", {class: "m"}, h("div", {}, h("b", {}, fmtN(tot)), h("span", {class: "lb"}, "Päringuid kokku"))),
+        h("div", {class: "m"}, h("div", {}, h("b", {}, tot ? fmtMs(msTot / tot) : "–"), h("span", {class: "lb"}, "Keskmine kestus"))),
+        h("div", {class: "m"}, h("div", {}, h("b", {}, mins ? fmtN(tot / mins) : "–"), h("span", {class: "lb"}, "req/min (keskmine)")))),
+      h("small", {}, "Kõik resqli päringud, mitte ainult ERRU" + (li2 >= 0 ? " · viimane aken: " + fmtN(Math.round(n[li2] / r.mins[li2])) + " req/min, " + (lastMean != null ? fmtMs(lastMean) : "–") : "")));
+  };
   const E = r.erru, lri = lastNonNull(E.ri_in.rpm), lrs = lastNonNull(E.rs_in.rpm);
   const ioTile = (title, a, b, small) => h("div", {class: "kpi io"}, h("p", {}, title),
     h("div", {class: "io-row"}, a, b), h("small", {}, small));
@@ -320,12 +332,13 @@ function renderKpis() {
     ioTile("erru-xml-adapter",
       metric("in", "Sisse", tIn, last(r.rpm_in, li)), metric("out", "Välja", tOut, last(r.rpm_out, li)),
       "Sisse = POST /erru/xml · Välja = /xml-out/*"),
-    ioTile("ruuter-internal · ERRU",
+    ioTile("ruuter-internal · xtr/inbound",
       metric("in", "Sisse", sum(E.ri_in.n), last(E.ri_in.rpm, lri)), metric("out", "Välja", sum(E.ri_out.n), last(E.ri_out.rpm, lri)),
-      "Sisse = ERRU päringud · Välja = väljaminevad HTTP-kutsed" + (lq >= 0 ? " · p95 " + fmtMs(r.lat.ruuter_internal.p95[lq]) : "")),
-    ioTile("resql · ERRU",
+      "Sisse = /erru/xtr/inbound/* päringud · Välja = nende ahelate väljaminevad HTTP-kutsed" + (lq >= 0 ? " · p95 " + fmtMs(r.lat.ruuter_internal.p95[lq]) : "")),
+    ioTile("resql · xtr/inbound ahelad",
       metric("in", "Sisse", sum(E.rs_in.n), last(E.rs_in.rpm, lrs)), metric("out", "Välja", sum(E.rs_out.n), last(E.rs_out.rpm, lrs)),
-      "Sisse = päringud · Välja = edukad vastused" + (lr >= 0 ? " · p95 " + fmtMs(r.lat.resql.p95[lr]) : "")),
+      "Sisse = nende ahelate resqli päringud · Välja = edukad vastused" + (lr >= 0 ? " · p95 " + fmtMs(r.lat.resql.p95[lr]) : "")),
+    sqlTile(r),
     tile("err" + (errs ? " bad" : ""), "⚠ Vigu (5xx ja ERROR)", fmtN(errs),
       fmtN(warns) + " hoiatust · " + fmtN(c4) + " × 4xx",
       {role: "button", tabindex: 0, title: "Ava vigade nimekiri", onclick: () => jumpToErrors(),
@@ -491,8 +504,8 @@ function renderFoot() {
   const c = DATA.coverage;
   document.getElementById("foot").replaceChildren(
     h("p", {}, "Vea mõiste: 5xx vastus või ERROR-taseme logirida. 4xx-vastused ja WARN-read loetakse eraldi. Päringu ahel seotakse trace-id järgi."),
-    h("p", {}, "ERRU-seotud päring: ahelas on vähemalt üks /erru/… päring. Cron, X-tee openapi ja muud mitte-ERRU kutsed jäävad kaartidelt välja. " +
-      "Ruuter-internali „välja“ on ERRU ahelates tehtud väljaminevad HTTP-kutsed (resql, adapter, teavitused)."),
+    h("p", {}, "Ruuter-internali ja resqli ERRU-kaardid hõlmavad ainult ahelaid, mis algavad /erru/xtr/inbound/… päringuga (worker, cron ja X-tee openapi jäävad välja). " +
+      "Ruuter-internali „välja“ on nende ahelate väljaminevad HTTP-kutsed (resql, adapter, teavitused). SQL-päringute kaart loeb kõiki resqli HTTP-päringuid ja keskmine on kaalutud päringute arvuga."),
     h("p", {}, "Andmed pärinevad teenuste logidest, mida koguti Argo CD kaudu, ja on koondatud alates " + hm(DATA.dataFrom) +
       " (Eesti aeg). Pooleli oleva ajaakna req/min arvutatakse seni kaetud ajast."),
     h("p", {}, "Hall taust graafikul tähistab kogumislünka. Tühi koht joonel tähendab, et andmeid pole, mitte et väärtus oli null."));
