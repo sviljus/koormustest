@@ -34,6 +34,7 @@ header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-co
 .chip b{color:var(--ink);font-weight:600}
 .chip.ok::before,.chip.late::before,.chip.local::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
 .chip.late::before{background:var(--crit)}
+.chip.done::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ink2)}
 .chip.local::before{background:var(--s1)}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .filters{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:0 0 14px}
@@ -525,11 +526,17 @@ function renderHeader() {
 }
 function tickStatus() {
   if (!DATA) return;
-  const age = Math.round((Date.now() - ms(DATA.lastEvent)) / 60000);
-  const late = age > 5;
+  const dayFmt = new Intl.DateTimeFormat("et-EE", {timeZone: TZ, day: "numeric", month: "numeric", year: "numeric"});
+  const lo = DATA.testStart || DATA.loadStart, hi = DATA.loadEnd;
+  const mins = lo && hi ? Math.round((ms(hi) - ms(lo)) / 60000) : null;
+  const dur = mins == null ? "" : " (" + Math.floor(mins / 60) + " h " + (mins % 60) + " min)";
+  const same = lo && hi && dayFmt.format(new Date(ms(lo))) === dayFmt.format(new Date(ms(hi)));
+  const span = lo && hi
+    ? dayFmt.format(new Date(ms(lo))) + " " + hms(lo).slice(0, 5) + " – " + (same ? "" : dayFmt.format(new Date(ms(hi))) + " ") + hms(hi).slice(0, 5) + dur
+    : "";
   document.getElementById("status").replaceChildren(
-    h("span", {class: "chip " + (late ? "late" : "ok")}, "Viimane andmepunkt ", h("b", {}, hms(DATA.lastEvent)),
-      " · " + (age < 1 ? "äsja" : age + " min tagasi") + (late ? " · kogumine võib seisata" : "")),
+    h("span", {class: "chip done"}, "Test lõppenud · ", h("b", {}, span), " · Eesti aeg"),
+    h("span", {class: "chip done"}, "Logid kogutud kuni ", h("b", {}, hms(DATA.lastEvent).slice(0, 5)), " · kogumine peatatud"),
     ERRS ? h("span", {class: "chip local"}, "Kohalik vaade · vea detailid nähtaval") : null);
 }
 function renderFoot() {
