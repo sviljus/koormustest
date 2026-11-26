@@ -449,8 +449,7 @@ function renderTable() {
 }
 function renderHeader() {
   document.getElementById("title").textContent = DATA.title;
-  const start = DATA.testStart ? hm(DATA.testStart) : "";
-  document.getElementById("sub").textContent = DATA.env + (start ? " · algus " + start : "") + (DATA.testHours ? " · kestus kuni " + DATA.testHours + " h" : "") + " · kellaaeg Eesti aegu";
+  document.getElementById("sub").textContent = DATA.env;
   tickStatus();
 }
 function tickStatus() {
