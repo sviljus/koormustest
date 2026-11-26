@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERRU koormustest</title>
+<style>
+:root{
+  color-scheme:light;
+  --page:#f9f9f9; --surface:#fff; --ink:#191919; --ink2:#666; --grid:#e7e7e7; --axis:#c2c2c2;
+  --ring:rgba(11,11,11,.10); --sel:rgba(37,125,224,.09); --hover:rgba(11,11,11,.05);
+  --s1:#257de0; --s2:#f47230; --s3:#00b894; --s4:#f2a600;
+  --crit:#dc3c3d; --warn:#b97a00; --good:#006c10;
+  --font:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    color-scheme:dark;
+    --page:#0b0b0b; --surface:#191919; --ink:#efefef; --ink2:#9c9c9c; --grid:#303030; --axis:#474747;
+    --ring:rgba(255,255,255,.10); --sel:rgba(51,140,237,.16); --hover:rgba(255,255,255,.06);
+    --s1:#338ced; --s2:#e76624; --s3:#00a888; --s4:#d28e05;
+    --warn:#fbb315; --good:#53c556;
+  }
+}
+*{box-sizing:border-box}
+html{background:var(--page)}
+body{margin:0;font:14px/1.45 var(--font);color:var(--ink);background:var(--page)}
+main{max-width:1240px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0;font-weight:650}
+h2{font-size:15px;margin:0;font-weight:650}
+.sub{color:var(--ink2);margin:4px 0 0;font-size:13px}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12px;border:1px solid var(--ring);background:var(--surface);color:var(--ink2)}
+.chip b{color:var(--ink);font-weight:600}
+.chip.ok::before,.chip.late::before,.chip.local::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
+.chip.late::before{background:var(--crit)}
+.chip.local::before{background:var(--s1)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.filters{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:0 0 14px}
+.seg{display:inline-flex;border:1px solid var(--ring);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;border:0;background:transparent;color:var(--ink2);padding:6px 14px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--ring)}
+.seg button:hover{background:var(--hover)}
+.seg button[aria-pressed=true]{color:var(--ink);font-weight:600;background:var(--sel)}
+.seg button[aria-pressed=true]::before{content:"✓ ";font-weight:700}
+button:focus-visible,svg:focus-visible,summary:focus-visible,tr:focus-visible,select:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:14px 16px}
+.kpi p{margin:0;color:var(--ink2);font-size:12.5px}
+.kpi strong{display:block;font-size:30px;line-height:1.15;margin-top:4px;font-weight:650}
+.kpi small{color:var(--ink2);font-size:12px}
+.kpi.err{cursor:pointer}
+.kpi.err:hover{background:var(--hover)}
+.kpi.bad strong{color:var(--crit)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:12px;margin-bottom:12px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:14px 16px;min-width:0}
+.card .hint{color:var(--ink2);font-size:12.5px;margin:2px 0 8px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12.5px;color:var(--ink2);margin-bottom:4px}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:6px;border-radius:2px}
+.legend i.box{width:10px;height:10px;border:0;border-radius:2px;background:currentColor}
+.note{font-size:12px;color:var(--ink2);margin:6px 0 0}
+svg{display:block;max-width:100%;overflow:visible;touch-action:pan-y}
+svg text{font-family:var(--font);fill:var(--ink2);font-size:11.5px}
+svg .lbl{fill:var(--ink);font-weight:600}
+.tip{position:fixed;z-index:10;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--ring);border-radius:8px;
+  box-shadow:0 4px 18px rgba(0,0,0,.18);padding:8px 10px;font-size:12.5px;min-width:150px;max-width:300px}
+.tip .th{color:var(--ink2);margin-bottom:4px}
+.tip .tr{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.tip .tr span:first-child{display:flex;align-items:center;gap:6px;color:var(--ink2)}
+.tip .tr i{display:inline-block;width:12px;border-top:2px solid;border-radius:2px}
+.tip .tr b{font-weight:650;font-variant-numeric:tabular-nums}
+.panel{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.panel-h{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.nav button{font:inherit;border:1px solid var(--ring);background:var(--surface);color:var(--ink);border-radius:8px;padding:4px 10px;cursor:pointer}
+.nav button:hover{background:var(--hover)}
+.nav button:disabled{opacity:.4;cursor:default}
+.tabs{display:flex;gap:4px;margin:10px 0}
+.tabs button{font:inherit;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--ink2);padding:6px 12px;cursor:pointer}
+.tabs button[aria-selected=true]{color:var(--ink);font-weight:600;border-color:var(--s1)}
+.sum{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--ink2)}
+.sum b{color:var(--ink)}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:720px;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:6px 10px;border-bottom:1px solid var(--grid);white-space:nowrap}
+th{color:var(--ink2);font-weight:600;font-size:12px;position:sticky;top:0;background:var(--surface)}
+th:first-child,td:first-child,th.l,td.l{text-align:left}
+td.route{max-width:480px;overflow:hidden;text-overflow:ellipsis}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--hover)}
+td.e{color:var(--crit);font-weight:650}
+.sev{font-weight:650}
+.sev.error{color:var(--crit)}
+.sev.warn{color:var(--warn)}
+.detail td{background:var(--hover);white-space:normal;text-align:left}
+.detail pre{margin:0 0 8px;white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+.detail table{min-width:0;margin-top:4px}
+.detail td,.detail th{padding:3px 8px}
+.empty{color:var(--ink2);padding:14px 0}
+details.tv{margin-top:12px}
+details.tv summary{cursor:pointer;font-weight:600;padding:4px 0}
+select{font:inherit;border:1px solid var(--ring);border-radius:8px;background:var(--surface);color:var(--ink);padding:5px 8px}
+footer{color:var(--ink2);font-size:12.5px;line-height:1.6;max-width:90ch;margin-top:18px}
+footer p{margin:4px 0}
+@media (forced-colors:active){svg .gap{fill:none;stroke:CanvasText}}
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite">
+  <header>
+    <div>
+      <h1 id="title">ERRU koormustest</h1>
+      <p class="sub" id="sub">Laen andmeid…</p>
+    </div>
+    <div class="row" id="status"></div>
+  </header>
+  <div class="filters">
+    <div class="seg" role="group" aria-label="Ajasamm">
+      <button type="button" data-res="r10" aria-pressed="true">10 min</button>
+      <button type="button" data-res="r60" aria-pressed="false">1 h</button>
+    </div>
+  </div>
+  <section class="kpis" id="kpis"></section>
+  <section class="grid" id="charts"></section>
+  <section class="panel" id="panel"></section>
+  <details class="tv"><summary>Tabelivaade (kõik ajaaknad)</summary><div class="tw" id="tv"></div></details>
+  <footer id="foot"></footer>
+</main>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+"use strict";
+const TZ = "Europe/Tallinn";
+const NS = "http://www.w3.org/2000/svg";
+const nf = new Intl.NumberFormat("et-EE", {maximumFractionDigits: 0});
+const nf1 = new Intl.NumberFormat("et-EE", {maximumFractionDigits: 1});
+const hmFmt = new Intl.DateTimeFormat("en-GB", {timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23"});
+const hmsFmt = new Intl.DateTimeFormat("en-GB", {timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"});
+const SVC = {adapter: "erru-xml-adapter", ruuter_internal: "ruuter-internal", ruuter: "ruuter", resql: "resql (DB)"};
+
+let DATA = null, ERRS = null, RES = "r10", SEL = null, TAB = "ep", SVCF = "", OPEN = new Set();
+
+/* ---------- abifunktsioonid ---------- */
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c != null) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return e;
+}
+function sv(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+  if (parent) parent.append(e);
+  return e;
+}
+const R = () => DATA[RES];
+const ms = t => Date.parse(t);
+const hm = t => hmFmt.format(new Date(ms(t)));
+const hms = t => hmsFmt.format(new Date(ms(t)));
+const fmtN = v => v == null ? "–" : nf.format(v);
+const fmtMs = v => v == null ? "–" : (v < 10 ? nf1.format(v) : nf.format(v)) + " ms";
+const sum = a => a.reduce((s, v) => s + (v || 0), 0);
+const lastNonNull = a => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return i; return -1; };
+const firstNonNull = a => a.findIndex(v => v != null);
+function range(i) { const r = R(); return hm(r.t[i]) + "–" + hm(new Date(ms(r.t[i]) + r.step * 1000).toISOString()); }
+function errTotal(i) { return Object.values(R().errors).reduce((s, a) => s + (a[i] || 0), 0); }
+function errSeries() { return R().t.map((_, i) => Object.values(R().errors).every(a => a[i] == null) ? null : errTotal(i)); }
+function niceTicks(max) {
+  if (!(max > 0)) return {max: 1, ticks: [0, 1]};
+  const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+  const top = Math.ceil(max / step) * step, ticks = [];
+  for (let v = 0; v <= top + 1e-9; v += step) ticks.push(Math.round(v * 1000) / 1000);
+  return {max: top, ticks};
+}
+
+/* ---------- tooltip ---------- */
+const tip = document.getElementById("tip");
+function showTip(rows, head, x, y) {
+  tip.replaceChildren(h("div", {class: "th"}, head),
+    ...rows.map(r => h("div", {class: "tr"},
+      h("span", {}, r.color ? h("i", {style: "border-color:" + r.color}) : null, r.name),
+      h("b", {}, r.value))));
+  tip.hidden = false;
+  const w = tip.offsetWidth, hh = tip.offsetHeight;
+  tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, x + 14)) + "px";
+  tip.style.top = Math.max(8, Math.min(innerHeight - hh - 8, y + 14)) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+
+/* ---------- graafik ---------- */
+function drawChart(host, cfg) {
+  host.replaceChildren();
+  const r = R(), n = r.t.length;
+  const W = Math.max(280, host.clientWidth), H = 232;
+  const m = {l: cfg.kind === "col" ? 44 : 46, r: cfg.kind === "line" ? 54 : 14, t: 10, b: 26};
+  const pw = W - m.l - m.r, ph = H - m.t - m.b, bw = pw / Math.max(n, 1);
+  const vmax = Math.max(0, ...cfg.series.flatMap(s => s.vals.filter(v => v != null)));
+  const {max, ticks} = niceTicks(vmax);
+  const X = i => m.l + (i + 0.5) * bw, Y = v => m.t + ph - (v / max) * ph;
+  const svg = sv("svg", {viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img", tabindex: 0,
+    "aria-label": cfg.aria + ". Nooleklahvid valivad ajaakna."}, host);
+
+  // taust: valitud aken, lüngad
+  if (SEL != null) sv("rect", {x: m.l + SEL * bw, y: m.t, width: bw, height: ph, fill: "var(--sel)"}, svg);
+  const t0 = ms(r.t[0]);
+  for (const g of r.gaps || []) {
+    const x0 = Math.max(m.l, m.l + (ms(g.from) - t0) / (r.step * 1000) * bw);
+    const x1 = Math.min(m.l + pw, m.l + (ms(g.to) - t0) / (r.step * 1000) * bw);
+    if (x1 > x0) {
+      const gr = sv("rect", {class: "gap", x: x0, y: m.t, width: x1 - x0, height: ph, fill: "var(--hover)"}, svg);
+      sv("title", {}, gr).textContent = "Kogumislünk " + hm(g.from) + "–" + hm(g.to) + " (" + SVC[g.svc.replace("-", "_")] + ")";
+    }
+  }
+  // ruudustik ja telgede sildid
+  for (const v of ticks) {
+    sv("line", {x1: m.l, x2: m.l + pw, y1: Y(v), y2: Y(v), stroke: v === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1}, svg);
+    sv("text", {x: m.l - 8, y: Y(v) + 4, "text-anchor": "end"}, svg).textContent = nf.format(v);
+  }
+  const span = ms(r.t[n - 1]) - t0 + r.step * 1000, stepMin = span <= 8 * 3600e3 && r.step === 600 ? 30 : 60;
+  for (let i = 0; i <= n; i++) {
+    const tt = new Date(t0 + i * r.step * 1000), mins = +hmFmt.format(tt).slice(3);
+    if (mins % stepMin) continue;
+    const x = m.l + i * bw;
+    sv("line", {x1: x, x2: x, y1: m.t + ph, y2: m.t + ph + 4, stroke: "var(--axis)"}, svg);
+    sv("text", {x, y: H - 6, "text-anchor": "middle"}, svg).textContent = hmFmt.format(tt);
+  }
+  // andmemärgid
+  if (cfg.kind === "col") {
+    const w = Math.min(24, bw - 2);
+    cfg.series[0].vals.forEach((v, i) => {
+      if (v == null || v <= 0) return;
+      const y = Y(v), hgt = m.t + ph - y, rr = Math.min(4, hgt), x = X(i) - w / 2;
+      sv("path", {d: `M${x},${m.t + ph}V${y + rr}a${rr},${rr} 0 0 1 ${rr},${-rr}h${w - 2 * rr}a${rr},${rr} 0 0 1 ${rr},${rr}V${m.t + ph}Z`,
+        fill: cfg.series[0].color}, svg);
+    });
+  } else {
+    const ends = [];
+    for (const s of cfg.series) {
+      let d = "", pen = false;
+      s.vals.forEach((v, i) => {
+        if (v == null) { pen = false; return; }
+        d += (pen ? "L" : "M") + X(i).toFixed(1) + "," + Y(v).toFixed(1); pen = true;
+      });
+      sv("path", {d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round"}, svg);
+      const e = lastNonNull(s.vals);
+      if (e >= 0) {
+        sv("circle", {cx: X(e), cy: Y(s.vals[e]), r: 4, fill: s.color, stroke: "var(--surface)", "stroke-width": 2}, svg);
+        ends.push({y: Y(s.vals[e]), x: X(e), text: cfg.fmt(s.vals[e])});
+      }
+    }
+    ends.sort((a, b) => a.y - b.y);
+    let prev = -99;
+    for (const e of ends) {                      // põrkuvad sildid jäetakse välja: legend ja tooltip kannavad
+      if (e.y - prev < 13) continue;
+      sv("text", {class: "lbl", x: e.x + 9, y: e.y + 4}, svg).textContent = e.text;
+      prev = e.y;
+    }
+  }
+  // hover-kiht
+  const cross = sv("line", {y1: m.t, y2: m.t + ph, stroke: "var(--ink2)", "stroke-width": 1, visibility: "hidden"}, svg);
+  const hit = sv("rect", {x: m.l, y: m.t, width: pw, height: ph, fill: "transparent", style: "cursor:pointer"}, svg);
+  const idxAt = ev => {
+    const b = svg.getBoundingClientRect();
+    return Math.max(0, Math.min(n - 1, Math.floor(((ev.clientX - b.left) * (W / b.width) - m.l) / bw)));
+  };
+  const show = (i, x, y) => {
+    cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.setAttribute("visibility", "visible");
+    showTip(cfg.tip(i), range(i), x, y);
+  };
+  hit.addEventListener("pointermove", ev => show(idxAt(ev), ev.clientX, ev.clientY));
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+  hit.addEventListener("click", ev => { const i = idxAt(ev); setSel(i, cfg.onSelect); });
+  svg.addEventListener("keydown", ev => {
+    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+    ev.preventDefault();
+    const i = Math.max(0, Math.min(n - 1, (SEL ?? n - 1) + (ev.key === "ArrowLeft" ? -1 : 1)));
+    setSel(i);
+    const b = svg.getBoundingClientRect();
+    requestAnimationFrame(() => { const s2 = host.querySelector("svg"); if (s2) s2.focus(); });
+  });
+  svg.addEventListener("blur", hideTip);
+}
+
+/* ---------- KPI-d, graafikud, paneel ---------- */
+function renderKpis() {
+  const r = R(), perMin = r.step / 60;
+  const tIn = sum(r.in), tOut = sum(r.out);
+  const li = lastNonNull(r.in);
+  const errs = sum(r.t.map((_, i) => errTotal(i))), warns = sum(r.warnings), c4 = sum(r.client_4xx);
+  const lr = lastNonNull(r.lat.resql.p95), lq = lastNonNull(r.lat.ruuter_internal.p95);
+  const el = document.getElementById("kpis");
+  const tile = (cls, label, value, small, attrs) => h("div", {class: "kpi " + cls, ...attrs}, h("p", {}, label), h("strong", {}, value), h("small", {}, small));
+  el.replaceChildren(
+    tile("", "Sisse tulnud päringuid", fmtN(tIn), li >= 0 ? "viimane aken: " + fmtN(r.rpm_in[li]) + " req/min" : ""),
+    tile("", "Saadetud vastuseid", fmtN(tOut), li >= 0 ? "viimane aken: " + fmtN(r.rpm_out[li]) + " req/min" : ""),
+    tile("err" + (errs ? " bad" : ""), "⚠ Vigu (5xx ja ERROR)", fmtN(errs),
+      fmtN(warns) + " hoiatust · " + fmtN(c4) + " × 4xx",
+      {role: "button", tabindex: 0, title: "Ava vigade nimekiri", onclick: () => jumpToErrors(),
+       onkeydown: e => { if (e.key === "Enter" || e.key === " ") jumpToErrors(); }}),
+    tile("", "Ruuter-internal p95", lq >= 0 ? fmtMs(r.lat.ruuter_internal.p95[lq]) : "–", lq >= 0 ? "max " + fmtMs(r.lat.ruuter_internal.max[lq]) : "andmed puuduvad"),
+    tile("", "DB vastus p95 (resql)", lr >= 0 ? fmtMs(r.lat.resql.p95[lr]) : "–", lr >= 0 ? "max " + fmtMs(r.lat.resql.max[lr]) : "andmed puuduvad"));
+}
+function legend(items) {
+  return h("div", {class: "legend"}, items.map(it => h("span", {}, h("i", {style: "border-color:" + it.color}), it.name)));
+}
+function covNote(label, vals) {
+  const f = firstNonNull(vals);
+  return f > 0 ? h("p", {class: "note"}, label + ": andmed alates " + hm(R().t[f]) + " (varasemate logide kogumine ei olnud veel alanud).") : null;
+}
+function chartDefs() {
+  const r = R();
+  const mk = (name, color, vals) => ({name, color, vals});
+  const rows = (series, fmt) => i => series.map(s => ({name: s.name, color: s.color, value: fmt(s.vals[i])}));
+  const c1 = [mk("Sisse (päringud)", "var(--s1)", r.rpm_in), mk("Välja (vastused)", "var(--s2)", r.rpm_out)];
+  const c3 = [mk("Adapter sisse", "var(--s1)", r.lat.adapter_in.p95), mk("Ruuter-internal", "var(--s2)", r.lat.ruuter_internal.p95), mk("Adapter välja", "var(--s3)", r.lat.adapter_out.p95)];
+  const c4 = [mk("p50", "var(--s1)", r.lat.resql.p50), mk("p95", "var(--s2)", r.lat.resql.p95), mk("max", "var(--s3)", r.lat.resql.max)];
+  const ev = errSeries();
+  return [
+    {id: "c1", title: "Päringuid minutis", hint: "Ämbri keskmine, ümardatud täisarvuks. Sisse = adapteri POST /erru/xml, välja = adapteri /xml-out/*.",
+      kind: "line", series: c1, fmt: v => fmtN(v), aria: "Päringuid ja vastuseid minutis", tip: rows(c1, v => v == null ? "–" : fmtN(v) + " req/min"),
+      legend: legend(c1), note: null},
+    {id: "c2", title: "⚠ Vead", hint: "5xx vastused ja ERROR-read ämbri kohta. Klõpsa tulpa, et näha põhjuseid.",
+      kind: "col", series: [mk("Vigu kokku", "var(--crit)", ev)], fmt: v => fmtN(v), aria: "Vigade arv ajaakna kohta",
+      tip: i => [{name: "Vigu kokku", color: "var(--crit)", value: ev[i] == null ? "–" : fmtN(ev[i])},
+        ...Object.entries(r.errors).map(([k, a]) => ({name: SVC[k], color: null, value: fmtN(a[i])}))],
+      legend: null, onSelect: () => { TAB = ERRS ? "err" : "ep"; }},
+    {id: "c3", title: "Vastuseaeg (p95)", hint: "95% päringutest oli selle ajaga valmis või kiirem.",
+      kind: "line", series: c3, fmt: v => fmtN(v), aria: "Vastuseaja p95 millisekundites", tip: rows(c3, v => v == null ? "–" : fmtMs(v)),
+      legend: legend(c3), note: covNote("Ruuter-internal", r.lat.ruuter_internal.p95)},
+    {id: "c4", title: "DB vastuseaeg (resql)", hint: "Resqli HTTP-päringu kestus millisekundites.",
+      kind: "line", series: c4, fmt: v => fmtN(v), aria: "DB vastuseaeg millisekundites", tip: rows(c4, v => v == null ? "–" : fmtMs(v)),
+      legend: legend(c4), note: covNote("Resql", r.lat.resql.p95)},
+  ];
+}
+let DEFS = [];
+function renderCharts() {
+  DEFS = chartDefs();
+  const root = document.getElementById("charts");
+  if (root.children.length !== DEFS.length) {
+    root.replaceChildren(...DEFS.map(d => h("div", {class: "card", id: d.id},
+      h("h2", {}, d.title), h("p", {class: "hint"}, d.hint), d.legend || "", h("div", {class: "plot"}), d.note || "")));
+  } else {
+    DEFS.forEach((d, k) => {                       // legend ja märkus uuendatakse, raam jääb
+      const c = root.children[k];
+      c.querySelector(".note")?.remove();
+      if (d.note) c.append(d.note);
+    });
+  }
+  DEFS.forEach((d, k) => drawChart(root.children[k].querySelector(".plot"), d));
+}
+function setSel(i, hook) {
+  SEL = i;
+  if (hook) hook();
+  renderCharts(); renderPanel();
+}
+function jumpToErrors() {
+  const r = R();
+  let i = SEL;
+  if (i == null || !errTotal(i)) { for (let k = r.t.length - 1; k >= 0; k--) if (errTotal(k)) { i = k; break; } }
+  TAB = ERRS ? "err" : "ep";
+  setSel(i ?? r.t.length - 1);
+  document.getElementById("panel").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+function renderPanel() {
+  const r = R(), i = SEL, p = document.getElementById("panel");
+  if (i == null) { p.replaceChildren(); return; }
+  const t0 = ms(r.t[i]), t1 = t0 + r.step * 1000;
+  const e = errTotal(i);
+  const nav = h("div", {class: "nav row"},
+    h("button", {type: "button", disabled: i === 0, onclick: () => setSel(i - 1), "aria-label": "Eelmine aken"}, "←"),
+    h("button", {type: "button", disabled: i === r.t.length - 1, onclick: () => setSel(i + 1), "aria-label": "Järgmine aken"}, "→"));
+  const eps = r.endpoints.filter(x => x.n[i] && (!SVCF || x.svc === SVCF)).sort((a, b) => (b.err[i] - a.err[i]) || (b.n[i] - a.n[i]));
+  const inWin = ERRS ? ERRS.items.filter(x => ms(x.ts) >= t0 && ms(x.ts) < t1 && (!SVCF || x.svc === SVCF)) : [];
+  const tabs = h("div", {class: "tabs", role: "tablist"},
+    h("button", {role: "tab", "aria-selected": TAB === "ep", onclick: () => { TAB = "ep"; renderPanel(); }}, "Endpoint'id"),
+    ERRS ? h("button", {role: "tab", "aria-selected": TAB === "err", onclick: () => { TAB = "err"; renderPanel(); }},
+      "Vead ja hoiatused (" + fmtN(inWin.length) + ")") : null);
+  const svcSel = h("select", {"aria-label": "Teenus", onchange: ev => { SVCF = ev.target.value; renderPanel(); }},
+    h("option", {value: ""}, "Kõik teenused"),
+    ...Object.entries(SVC).map(([k, v]) => h("option", {value: k, selected: SVCF === k}, v)));
+  const sumRow = h("div", {class: "sum"},
+    h("span", {}, "Sisse ", h("b", {}, fmtN(r.in[i]))), h("span", {}, "Välja ", h("b", {}, fmtN(r.out[i]))),
+    h("span", {}, "Vigu ", h("b", {style: e ? "color:var(--crit)" : ""}, fmtN(e))),
+    h("span", {}, "Hoiatusi ", h("b", {}, fmtN(r.warnings[i]))), h("span", {}, "4xx ", h("b", {}, fmtN(r.client_4xx[i]))),
+    h("span", {}, "Ruuter-internal p95 ", h("b", {}, fmtMs(r.lat.ruuter_internal.p95[i]))),
+    h("span", {}, "DB p95 ", h("b", {}, fmtMs(r.lat.resql.p95[i]))));
+  let body;
+  if (TAB === "err" && ERRS) body = errorList(inWin);
+  else body = endpointTable(eps, i);
+  p.replaceChildren(
+    h("div", {class: "panel-h"}, h("h2", {}, "Valitud aken: " + range(i)), h("div", {class: "row"}, svcSel, nav)),
+    sumRow, tabs, body);
+}
+function endpointTable(eps, i) {
+  if (!eps.length) return h("p", {class: "empty"}, "Selles aknas pole selle teenuse päringuid.");
+  return h("div", {class: "tw"}, h("table", {},
+    h("thead", {}, h("tr", {}, h("th", {class: "l"}, "Teenus"), h("th", {class: "l"}, "Endpoint"), h("th", {}, "Päringuid"),
+      h("th", {}, "Vigu (5xx)"), h("th", {}, "p50"), h("th", {}, "p95"), h("th", {}, "max"))),
+    h("tbody", {}, eps.map(x => h("tr", {},
+      h("td", {}, SVC[x.svc]), h("td", {class: "route l", title: x.route}, x.route), h("td", {}, fmtN(x.n[i])),
+      h("td", {class: x.err[i] ? "e" : ""}, fmtN(x.err[i])), h("td", {}, fmtMs(x.p50[i])), h("td", {}, fmtMs(x.p95[i])), h("td", {}, fmtMs(x.max[i])))))));
+}
+function errorList(items) {
+  if (!items.length) return h("p", {class: "empty"}, "Selles aknas pole vigu ega hoiatusi.");
+  const t0 = ms(R().t[SEL]);
+  const rows = [];
+  items.forEach((x, k) => {
+    const key = x.ts + "|" + x.svc + "|" + k, open = OPEN.has(key);
+    rows.push(h("tr", {class: "click", tabindex: 0, "aria-expanded": open,
+      onclick: () => { open ? OPEN.delete(key) : OPEN.add(key); renderPanel(); },
+      onkeydown: ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open ? OPEN.delete(key) : OPEN.add(key); renderPanel(); } }},
+      h("td", {}, (open ? "▾ " : "▸ ") + hms(x.ts)),
+      h("td", {class: "l"}, h("span", {class: "sev " + x.kind}, x.kind === "error" ? "⚠ Viga" : "! Hoiatus")),
+      h("td", {class: "l"}, SVC[x.svc]),
+      h("td", {class: "route l", title: x.route || x.msg}, x.route ? (x.m || "") + " " + x.route : (x.msg || "")),
+      h("td", {}, x.st != null ? String(x.st) : "–"), h("td", {}, x.ms != null ? fmtMs(x.ms) : "–")));
+    if (open) rows.push(h("tr", {class: "detail"}, h("td", {colspan: 6},
+      x.msg ? h("pre", {}, x.msg) : null,
+      h("div", {}, "Trace: ", h("code", {}, x.tr || "puudub")),
+      x.chain && x.chain.length ? chainTable(x) : h("p", {class: "note"}, x.tr ? "Ahela sündmusi logis ei leitud (logi pöördus ringi)." : "Sellel real puudub trace-id.")
+    )));
+  });
+  return h("div", {class: "tw"}, h("table", {},
+    h("thead", {}, h("tr", {}, h("th", {}, "Aeg"), h("th", {class: "l"}, "Tase"), h("th", {class: "l"}, "Teenus"), h("th", {class: "l"}, "Päring / teade"), h("th", {}, "Staatus"), h("th", {}, "Kestus"))),
+    h("tbody", {}, rows)));
+}
+function chainTable(x) {
+  const base = ms(x.chain[0].ts);
+  return h("table", {},
+    h("thead", {}, h("tr", {}, h("th", {}, "+ms"), h("th", {class: "l"}, "Teenus"), h("th", {class: "l"}, "Samm / päring"), h("th", {}, "Staatus"), h("th", {}, "Kestus"))),
+    h("tbody", {}, x.chain.map(c => h("tr", {},
+      h("td", {}, "+" + nf.format(ms(c.ts) - base)), h("td", {class: "l"}, SVC[c.svc]),
+      h("td", {class: "l"}, c.k === "log" ? c.lvl + ": " + (c.msg || "") : (c.step ? c.step + " → " : "") + (c.m || "") + " " + (c.route || "")),
+      h("td", {class: c.st >= 500 ? "e" : ""}, c.st != null ? String(c.st) : "–"), h("td", {}, c.ms != null ? fmtMs(c.ms) : "–")))));
+}
+function renderTable() {
+  const r = R();
+  document.getElementById("tv").replaceChildren(h("table", {},
+    h("thead", {}, h("tr", {}, ["Aeg", "Sisse", "Välja", "Sisse req/min", "Välja req/min", "Vigu", "Hoiatusi", "Ruuter-int. p95", "DB p95"].map((c, k) => h("th", {class: k ? "" : "l"}, c)))),
+    h("tbody", {}, r.t.map((_, i) => h("tr", {}, h("td", {}, range(i)), h("td", {}, fmtN(r.in[i])), h("td", {}, fmtN(r.out[i])),
+      h("td", {}, fmtN(r.rpm_in[i])), h("td", {}, fmtN(r.rpm_out[i])), h("td", {}, fmtN(errTotal(i))), h("td", {}, fmtN(r.warnings[i])),
+      h("td", {}, fmtMs(r.lat.ruuter_internal.p95[i])), h("td", {}, fmtMs(r.lat.resql.p95[i])))))));
+}
+function renderHeader() {
+  document.getElementById("title").textContent = DATA.title;
+  const start = DATA.testStart ? hm(DATA.testStart) : "";
+  document.getElementById("sub").textContent = DATA.env + (start ? " · algus " + start : "") + (DATA.testHours ? " · kestus kuni " + DATA.testHours + " h" : "") + " · kellaaeg Eesti aegu";
+  tickStatus();
+}
+function tickStatus() {
+  if (!DATA) return;
+  const age = Math.round((Date.now() - ms(DATA.lastEvent)) / 60000);
+  const late = age > 5;
+  document.getElementById("status").replaceChildren(
+    h("span", {class: "chip " + (late ? "late" : "ok")}, "Viimane andmepunkt ", h("b", {}, hms(DATA.lastEvent)),
+      " · " + (age < 1 ? "äsja" : age + " min tagasi") + (late ? " · kogumine võib seisata" : "")),
+    ERRS ? h("span", {class: "chip local"}, "Kohalik vaade · vea detailid nähtaval") : null);
+}
+function renderFoot() {
+  const c = DATA.coverage;
+  document.getElementById("foot").replaceChildren(
+    h("p", {}, "Vea mõiste: 5xx vastus või ERROR-taseme logirida. 4xx-vastused ja WARN-read loetakse eraldi. Päringu ahel seotakse trace-id järgi."),
+    h("p", {}, "Andmed pärinevad teenuste logidest, mida koguti Argo CD kaudu. Logid pöörduvad kiiresti ringi, seetõttu algavad andmed teenuseti eri ajal: " +
+      Object.entries(c).map(([k, v]) => SVC[k] + " " + (v ? hm(v) : "–")).join(", ") + "."),
+    h("p", {}, "Hall taust graafikul tähistab kogumislünka. Tühi koht joonel tähendab, et andmeid pole, mitte et väärtus oli null."));
+}
+
+/* ---------- laadimine ---------- */
+function renderAll() {
+  if (!DATA) return;
+  const r = R();
+  if (SEL == null || SEL >= r.t.length) SEL = r.t.length - 1;
+  renderHeader(); renderKpis(); renderCharts(); renderPanel(); renderTable(); renderFoot();
+  document.querySelectorAll("[data-res]").forEach(b => b.setAttribute("aria-pressed", b.dataset.res === RES));
+}
+async function load(first) {
+  try {
+    const d = await (await fetch("data.json?t=" + Date.now(), {cache: "no-store"})).json();
+    DATA = d;
+    try { const er = await fetch("errors.json?t=" + Date.now(), {cache: "no-store"}); ERRS = er.ok ? await er.json() : null; } catch (_) { ERRS = null; }
+    renderAll();
+  } catch (e) {
+    if (first) document.getElementById("sub").textContent = "Andmeid ei õnnestunud laadida (data.json).";
+  }
+}
+document.querySelectorAll("[data-res]").forEach(b => b.addEventListener("click", () => { RES = b.dataset.res; SEL = null; renderAll(); }));
+let rz; new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(() => { if (DATA) renderCharts(); }, 120); }).observe(document.getElementById("app"));
+load(true); setInterval(load, 60000); setInterval(tickStatus, 15000);
+</script>
+</body>
+</html>
