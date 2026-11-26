@@ -465,8 +465,8 @@ function renderFoot() {
   const c = DATA.coverage;
   document.getElementById("foot").replaceChildren(
     h("p", {}, "Vea mõiste: 5xx vastus või ERROR-taseme logirida. 4xx-vastused ja WARN-read loetakse eraldi. Päringu ahel seotakse trace-id järgi."),
-    h("p", {}, "Andmed pärinevad teenuste logidest, mida koguti Argo CD kaudu. Logid pöörduvad kiiresti ringi, seetõttu algavad andmed teenuseti eri ajal: " +
-      Object.entries(c).map(([k, v]) => SVC[k] + " " + (v ? hm(v) : "–")).join(", ") + "."),
+    h("p", {}, "Andmed pärinevad teenuste logidest, mida koguti Argo CD kaudu, ja on koondatud alates " + hm(DATA.dataFrom) +
+      " (Eesti aeg). Pooleli oleva ajaakna req/min arvutatakse seni kaetud ajast."),
     h("p", {}, "Hall taust graafikul tähistab kogumislünka. Tühi koht joonel tähendab, et andmeid pole, mitte et väärtus oli null."));
 }
 
