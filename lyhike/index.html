@@ -40,6 +40,10 @@ svg{width:100%;height:auto;display:block}
 <div class="sub" id="sub">Laen…</div>
 <div class="tiles" id="tiles"></div>
 
+<h2>Päringuliigid</h2>
+<div class="card"><table id="types"></table>
+<div class="note">CTUD = CheckTransportUndertakingData, CGR = CheckGoodRepute, NU = NotifyUnfitness, NCR = NotifyCheckResult, RSI = RoadSideInspection. „Vastu võetud" on ERRU-sse jõudnud päringud (202), „vastus saadetud" on Hubile läinud vastus või kviitung. CGR/CTUD vastus tuleb järjekorra töötajalt, NU/NCR/RSI kviitung kohe.</div></div>
+
 <h2>Enne testi: mis on testis peal</h2>
 <div class="card"><table id="deploy"></table>
 <div class="note" id="deploynote"></div></div>
@@ -83,6 +87,9 @@ fetch('data.json?'+Date.now()).then(r=>r.json()).then(d=>{
     [fmt(fail5),'HTTP 5xx kokku'],[fmt(sum(d.sql.slowStatements)),'aeglast SQL-lauset']];
   $('tiles').innerHTML=t.map(([b,s],i)=>`<div class="tile"><b class="${i==3&&sum(exp)>0?'bad':''}">${b}</b><span>${s}</span></div>`).join('');
 
+  // päringuliigid
+  const tl=Object.entries(d.byType||{});
+  $('types').innerHTML='<tr><th>Liik</th><th>Vastu võetud</th><th>Vastus saadetud</th><th>Aegunud</th><th>Uuesti järjekorda</th><th>Ebaõnnestunud</th><th>Tagasi lükatud (5xx)</th></tr>'+tl.map(([c,x])=>`<tr><td><b>${c}</b></td><td>${fmt(x.received)}</td><td class="${x.received&&!x.answered?'bad':''}">${fmt(x.answered)}</td><td class="${x.expired?'bad':''}">${fmt(x.expired)}</td><td class="${x.retry?'bad':''}">${fmt(x.retry)}</td><td class="${x.failed?'bad':''}">${fmt(x.failed)}</td><td class="${x.rejected?'bad':''}">${fmt(x.rejected)}</td></tr>`).join('');
   // deploy
   const short=i=>i.replace(/^.*\//,'').replace(/@sha256:.*$/,'').slice(0,40);
   const dep=Object.entries(d.deploy||{});
