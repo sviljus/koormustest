@@ -40,6 +40,10 @@ svg{width:100%;height:auto;display:block}
 <div class="sub" id="sub">Laen…</div>
 <div class="tiles" id="tiles"></div>
 
+<h2>Enne testi: mis on testis peal</h2>
+<div class="card"><table id="deploy"></table>
+<div class="note" id="deploynote"></div></div>
+
 <h2>Sissetulek ja vastused (5 min)</h2>
 <div class="card">
   <div class="legend"><span><i style="background:var(--s1)"></i>Sissetulev päring (adapter)</span><span><i style="background:var(--s3)"></i>Väljaminev vastus (/xml-out)</span><span><i style="background:var(--crit)"></i>Aegunud (CGR/CTUD, suletud ilma vastuseta)</span></div>
@@ -78,6 +82,14 @@ fetch('data.json?'+Date.now()).then(r=>r.json()).then(d=>{
     [fmt(sum(sent)),'CGR/CTUD vastust saadetud'],[fmt(sum(exp)),'CGR/CTUD aegunud'],
     [fmt(fail5),'HTTP 5xx kokku'],[fmt(sum(d.sql.slowStatements)),'aeglast SQL-lauset']];
   $('tiles').innerHTML=t.map(([b,s],i)=>`<div class="tile"><b class="${i==3&&sum(exp)>0?'bad':''}">${b}</b><span>${s}</span></div>`).join('');
+
+  // deploy
+  const short=i=>i.replace(/^.*\//,'').replace(/@sha256:.*$/,'').slice(0,40);
+  const dep=Object.entries(d.deploy||{});
+  $('deploy').innerHTML='<tr><th>Teenus</th><th>Versioon</th><th>Pod\'e</th><th>Olek</th><th>Vanim pod</th></tr>'+dep.map(([n,x])=>`<tr><td>${n}</td><td style="text-align:left">${[...new Set(x.images.map(short))].join(', ')||'–'}</td><td>${x.pods.length}</td><td class="${x.pods.every(p=>p.health==='Healthy')?'ok':'bad'}">${x.pods.every(p=>p.health==='Healthy')?'korras':'kontrolli'}</td><td>${x.pods.map(p=>p.age).sort().slice(-1)[0]||'–'}</td></tr>`).join('');
+  const runs=Math.max(0,...d.cron.runs.slice(0,-1)), tick=runs>150?'1 s tick (batch 5): uus järjekorra parandus on peal':'5 s tick: uus järjekorra parandus (#777) ei ole veel testis';
+  const pc=(d.podChanges||[]).filter(c=>c.change!=='snapshot');
+  $('deploynote').innerHTML=`Cron'i tick: <b>${tick}</b> (suurim täisämbri käivituste arv ${runs}, 5 s tick = 60, 1 s tick = 300). `+(pc.length?`Pod'ide muutused: ${pc.map(c=>`${hm(c.ts)} ${c.svc} ${c.change==='appeared'?'uus pod':c.change==='gone'?'pod kadus':'olek '+c.health}`).join('; ')}.`:'Pod\'ide muutusi pärast jälgimise algust ei ole.');
 
   // graafik
   const W=960,H=220,L=44,Bm=22,Tp=8,pw=W-L-6,ph=H-Bm-Tp;
