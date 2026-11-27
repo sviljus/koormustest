@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERRU koormustest – lühiülevaade</title>
+<style>
+:root{
+  color-scheme:light dark;
+  --page:#f9f9f9; --surface:#fff; --ink:#191919; --ink2:#666; --grid:#e7e7e7; --axis:#c2c2c2;
+  --s1:#257de0; --s2:#f47230; --s3:#00b894; --s4:#f2a600; --crit:#dc3c3d; --good:#006c10; --warn:#b97a00;
+  --font:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media(prefers-color-scheme:dark){:root{
+  --page:#0b0b0b; --surface:#191919; --ink:#efefef; --ink2:#9c9c9c; --grid:#303030; --axis:#474747;
+  --s1:#338ced; --s2:#e76624; --s3:#00a888; --s4:#d28e05; --warn:#fbb315; --good:#53c556;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 var(--font)}
+main{max-width:1000px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:20px;margin:0 0 2px} h2{font-size:15px;margin:26px 0 8px}
+.sub{color:var(--ink2);font-size:13px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+.tile{background:var(--surface);border:1px solid var(--grid);border-radius:8px;padding:10px 12px}
+.tile b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.tile span{color:var(--ink2);font-size:12px}
+.card{background:var(--surface);border:1px solid var(--grid);border-radius:8px;padding:12px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--grid);font-size:13px}
+th:first-child,td:first-child{text-align:left} th{color:var(--ink2);font-weight:600}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin:0 0 6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.bad{color:var(--crit);font-weight:600} .ok{color:var(--good)} .mut{color:var(--ink2)}
+svg{width:100%;height:auto;display:block}
+.note{font-size:12px;color:var(--ink2);margin-top:6px}
+</style>
+</head>
+<body>
+<main>
+<h1 id="title">ERRU koormustest</h1>
+<div class="sub" id="sub">Laen…</div>
+<div class="tiles" id="tiles"></div>
+
+<h2>Päringuliigid</h2>
+<div class="card"><table id="types"></table>
+<div class="note">CTUD = CheckTransportUndertakingData, CGR = CheckGoodRepute, NU = NotifyUnfitness, NCR = NotifyCheckResult, RSI = RoadSideInspection. „Vastu võetud" on ERRU-sse jõudnud päringud (202), „vastus saadetud" on Hubile läinud vastus või kviitung. CGR/CTUD vastus tuleb järjekorra töötajalt, NU/NCR/RSI kviitung kohe.</div></div>
+
+<h2>Enne testi: mis on testis peal</h2>
+<div class="card"><table id="deploy"></table>
+<div class="note" id="deploynote"></div></div>
+
+<h2>Sissetulek ja vastused (5 min)</h2>
+<div class="card">
+  <div class="legend"><span><i style="background:var(--s1)"></i>Sissetulev päring (adapter)</span><span><i style="background:var(--s3)"></i>Väljaminev vastus (/xml-out)</span><span><i style="background:var(--crit)"></i>Aegunud (CGR/CTUD, suletud ilma vastuseta)</span></div>
+  <svg id="chart" viewBox="0 0 960 220" role="img" aria-label="Sissetulek ja vastused 5 minuti kaupa"></svg>
+</div>
+
+<h2>CGR/CTUD järjekord: töötaja tulemus (5 min)</h2>
+<div class="card"><table id="workers"></table>
+<div class="note">Töötaja võtab rea järjekorrast. „Vastus saadetud" = Hubile läks vastus, „aegunud" = Hubi vastuseaken oli läbi. Cron'i käivitusi peaks olema 60 / 5 min (1 s tick).</div></div>
+
+<h2>Andmebaas ja cron</h2>
+<div class="card"><table id="sql"></table></div>
+
+<h2>Kõik logid teenuste kaupa</h2>
+<div class="card"><table id="svc"></table>
+<div class="note">Kogutud on kõik Argo CD kaudu kättesaadavad ljvis2-test logid. Tühi teenus tähendab, et logiridu ei olnud või nad olid tervisekontrollid.</div></div>
+
+<h2>HTTP 5xx marsruudi järgi</h2>
+<div class="card"><table id="r5"></table></div>
+<div class="note" id="gaps"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>n==null?'–':n.toLocaleString('et-EE');
+const hm=ts=>new Date(ts).toLocaleTimeString('et-EE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Tallinn'});
+const sum=a=>(a||[]).reduce((x,y)=>x+y,0);
+fetch('data.json?'+Date.now()).then(r=>r.json()).then(d=>{
+  $('title').textContent=d.title;
+  $('sub').textContent=`Keskkond ${d.env} · andmed ${hm(d.first)}–${hm(d.last)} (Tallinna aeg) · uuendatud ${hm(d.generated)}`;
+  const wo=d.workerOutcome, nb=d.nb;
+  const get=(o,k)=>(o&&o[k])||Array(nb).fill(0);
+  const inn=get(d.inbound,'in'), out=get(d.outbound,'out');
+  const exp=get(wo,'markExpired'), proc=get(wo,'markProcessed'), sent=get(wo,'answerSent');
+  const fail5=Object.values(d.services).reduce((a,s)=>a+s.http5xx,0);
+  const t=[[fmt(sum(inn)),'sisse tulnud päringut'],[fmt(sum(out)),'vastust väljas'],
+    [fmt(sum(sent)),'CGR/CTUD vastust saadetud'],[fmt(sum(exp)),'CGR/CTUD aegunud'],
+    [fmt(fail5),'HTTP 5xx kokku'],[fmt(sum(d.sql.slowStatements)),'aeglast SQL-lauset']];
+  $('tiles').innerHTML=t.map(([b,s],i)=>`<div class="tile"><b class="${i==3&&sum(exp)>0?'bad':''}">${b}</b><span>${s}</span></div>`).join('');
+
+  // päringuliigid
+  const tl=Object.entries(d.byType||{});
+  $('types').innerHTML='<tr><th>Liik</th><th>Vastu võetud</th><th>Vastus saadetud</th><th>Aegunud</th><th>Uuesti järjekorda</th><th>Ebaõnnestunud</th><th>Tagasi lükatud (5xx)</th></tr>'+tl.map(([c,x])=>`<tr><td><b>${c}</b></td><td>${fmt(x.received)}</td><td class="${x.received&&!x.answered?'bad':''}">${fmt(x.answered)}</td><td class="${x.expired?'bad':''}">${fmt(x.expired)}</td><td class="${x.retry?'bad':''}">${fmt(x.retry)}</td><td class="${x.failed?'bad':''}">${fmt(x.failed)}</td><td class="${x.rejected?'bad':''}">${fmt(x.rejected)}</td></tr>`).join('');
+  // deploy
+  const short=i=>i.replace(/^.*\//,'').replace(/@sha256:.*$/,'').slice(0,40);
+  const dep=Object.entries(d.deploy||{});
+  $('deploy').innerHTML='<tr><th>Teenus</th><th>Versioon</th><th>Pod\'e</th><th>Olek</th><th>Vanim pod</th></tr>'+dep.map(([n,x])=>`<tr><td>${n}</td><td style="text-align:left">${[...new Set(x.images.map(short))].join(', ')||'–'}</td><td>${x.pods.length}</td><td class="${x.pods.every(p=>p.health==='Healthy')?'ok':'bad'}">${x.pods.every(p=>p.health==='Healthy')?'korras':'kontrolli'}</td><td>${x.pods.map(p=>p.age).sort().slice(-1)[0]||'–'}</td></tr>`).join('');
+  const runs=Math.max(0,...d.cron.runs.slice(0,-1)), tick=runs>150?'1 s tick (batch 5): uus järjekorra parandus on peal':'5 s tick: uus järjekorra parandus (#777) ei ole veel testis';
+  const pc=(d.podChanges||[]).filter(c=>c.change!=='snapshot');
+  $('deploynote').innerHTML=`Cron'i tick: <b>${tick}</b> (suurim täisämbri käivituste arv ${runs}, 5 s tick = 60, 1 s tick = 300). `+(pc.length?`Pod'ide muutused: ${pc.map(c=>`${hm(c.ts)} ${c.svc} ${c.change==='appeared'?'uus pod':c.change==='gone'?'pod kadus':'olek '+c.health}`).join('; ')}.`:'Pod\'ide muutusi pärast jälgimise algust ei ole.');
+
+  // graafik
+  const W=960,H=220,L=44,Bm=22,Tp=8,pw=W-L-6,ph=H-Bm-Tp;
+  const max=Math.max(1,...inn,...out,...exp), step=Math.pow(10,Math.floor(Math.log10(max)));
+  const top=Math.ceil(max/step)*step, bw=pw/nb;
+  let s='';
+  for(let i=0;i<=4;i++){const y=Tp+ph-ph*i/4;s+=`<line x1="${L}" x2="${W-6}" y1="${y}" y2="${y}" stroke="var(--grid)"/><text x="${L-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--ink2)">${fmt(Math.round(top*i/4))}</text>`;}
+  const bar=(arr,k,col,off,w)=>arr.map((v,i)=>v?`<rect x="${L+i*bw+off}" y="${Tp+ph-ph*v/top}" width="${w}" height="${ph*v/top}" rx="2" fill="${col}"><title>${hm(new Date((Date.parse(d.runFrom)+i*d.bucketSec*1000)))} · ${v}</title></rect>`:'').join('');
+  const w=Math.max(2,bw/3-2);
+  s+=bar(inn,'in','var(--s1)',bw*.08,w)+bar(out,'out','var(--s3)',bw*.08+w+2,w)+bar(exp,'exp','var(--crit)',bw*.08+2*(w+2),w);
+  const every=Math.ceil(nb/12);
+  for(let i=0;i<nb;i+=every)s+=`<text x="${L+i*bw+bw/2}" y="${H-6}" text-anchor="middle" font-size="11" fill="var(--ink2)">${hm(Date.parse(d.runFrom)+i*d.bucketSec*1000)}</text>`;
+  $('chart').innerHTML=s;
+
+  // töötajad
+  const rows=(arr)=>arr.map(([n,a,cls])=>`<tr><td>${n}</td>${a.slice(-12).map(v=>`<td class="${cls&&v?cls:''}">${v||''}</td>`).join('')}<td><b>${fmt(sum(a))}</b></td></tr>`).join('');
+  const headT=Array.from({length:nb},(_,i)=>hm(Date.parse(d.runFrom)+i*d.bucketSec*1000)).slice(-12);
+  const head=(t)=>`<tr><th></th>${t.map(x=>`<th>${x}</th>`).join('')}<th>kokku</th></tr>`;
+  $('workers').innerHTML=head(headT)+rows([['Cron käivitusi',d.cron.runs,''],['Vastus saadetud',sent,'ok'],['Töödeldud (processed)',proc,''],['Aegunud (expired)',exp,'bad'],['Uuesti järjekorda (retry)',get(wo,'markRetry'),'bad'],['Ebaõnnestunud (failed)',get(wo,'markFailed'),'bad']]);
+
+  // sql
+  const ms=a=>`<td>${a==null?'':a}</td>`;
+  const sqlRows=[['Cron käivituse keskmine kestus, ms',d.cron.avgMs],['SQL keskmine, ms',d.sql.avgMs],['claim-due p95, ms',d.sql.claimDueP95],['finish p95, ms',d.sql.finishP95],['Aeglaseid SQL-lauseid',d.sql.slowStatements]];
+  $('sql').innerHTML=head(headT)+sqlRows.map(([n,a])=>`<tr><td>${n}</td>${a.slice(-12).map(v=>`<td>${v==null?'':v}</td>`).join('')}<td></td></tr>`).join('');
+
+  // teenused
+  const sv=Object.entries(d.services);
+  $('svc').innerHTML=`<tr><th>Teenus</th><th>Sündmusi</th><th>Päringuid</th><th>5xx</th><th>4xx</th><th>ERROR</th><th>WARN</th><th>p95, ms</th></tr>`+
+    sv.map(([n,x])=>`<tr><td>${n}${x.events?'':' <span class="mut">(vaikne)</span>'}</td><td>${fmt(x.events)}</td><td>${fmt(x.requests)}</td><td class="${x.http5xx?'bad':''}">${fmt(x.http5xx)}</td><td>${fmt(x.http4xx)}</td><td class="${x.errors?'bad':''}">${fmt(x.errors)}</td><td>${fmt(x.warns)}</td><td>${x.p95ms??'–'}</td></tr>`).join('');
+  $('r5').innerHTML=d.http5xxRoutes.length?`<tr><th>Teenus</th><th>Marsruut</th><th>Arv</th></tr>`+d.http5xxRoutes.map(r=>`<tr><td>${r.svc}</td><td style="text-align:left">${r.route}</td><td>${fmt(r.n)}</td></tr>`).join(''):'<tr><td>Ühtegi 5xx vastust ei ole.</td></tr>';
+  $('gaps').textContent=d.gaps.length?`Logivoos oli ${d.gaps.length} katkestust (viimane ${hm(d.gaps[d.gaps.length-1].to)}), nii et mõni rida võib puududa.`:'';
+}).catch(e=>{$('sub').textContent='Andmeid ei õnnestunud laadida: '+e});
+</script>
+</body>
+</html>
