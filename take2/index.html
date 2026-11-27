@@ -60,7 +60,7 @@ svg{width:100%;height:auto;display:block}
 
 <h2>CGR/CTUD järjekord: töötaja tulemus (5 min)</h2>
 <div class="card"><table id="workers"></table>
-<div class="note">Töötaja võtab rea järjekorrast. „Vastus saadetud" = Hubile läks vastus, „aegunud" = Hubi vastuseaken oli läbi. Cron'i käivitusi peaks olema 60 / 5 min (1 s tick).</div></div>
+<div class="note">Töötaja võtab rea järjekorrast. „Vastus saadetud" = Hubile läks vastus, „aegunud" = Hubi vastuseaken oli läbi. Cron'i käivitusi on 60 / 5 min 5 s tickiga ja 300 / 5 min 1 s tickiga. Pärast #777 sulgeb <code>claim-due</code> aegunud CGR/CTUD read ise ja worker neid ei näe, seega on „aegunud“ siin 0 ka siis, kui ridu aegub; nende arvu näeb ainult andmebaasist.</div></div>
 
 <h2>Andmebaas ja cron</h2>
 <div class="card"><table id="sql"></table></div>
@@ -93,7 +93,7 @@ fetch('data.json?'+Date.now()).then(r=>r.json()).then(d=>{
 
   // päringuliigid
   const tl=Object.entries(d.byType||{});
-  $('types').innerHTML='<tr><th>Liik</th><th>Vastu võetud</th><th>Vastus saadetud</th><th>Aegunud</th><th>Uuesti järjekorda</th><th>Ebaõnnestunud</th><th>Tagasi lükatud (5xx)</th></tr>'+tl.map(([c,x])=>`<tr><td><b>${c}</b></td><td>${fmt(x.received)}</td><td class="${x.received&&!x.answered?'bad':''}">${fmt(x.answered)}</td><td class="${x.expired?'bad':''}">${fmt(x.expired)}</td><td class="${x.retry?'bad':''}">${fmt(x.retry)}</td><td class="${x.failed?'bad':''}">${fmt(x.failed)}</td><td class="${x.rejected?'bad':''}">${fmt(x.rejected)}</td></tr>`).join('');
+  $('types').innerHTML='<tr><th>Liik</th><th>Vastu võetud</th><th>Vastus saadetud</th><th>Aegunud</th><th>Uuesti järjekorda</th><th>Ebaõnnestunud</th><th>Tagasi lükatud (mitte 202)</th></tr>'+tl.map(([c,x])=>`<tr><td><b>${c}</b></td><td>${fmt(x.received)}</td><td class="${x.received&&!x.answered?'bad':''}">${fmt(x.answered)}</td><td class="${x.expired?'bad':''}">${fmt(x.expired)}</td><td class="${x.retry?'bad':''}">${fmt(x.retry)}</td><td class="${x.failed?'bad':''}">${fmt(x.failed)}</td><td class="${x.rejected?'bad':''}">${fmt(x.rejected)}</td></tr>`).join('');
   const ml=Object.entries(d.byMessage||{}).sort();
   $('msgs').innerHTML='<tr><th>Sõnum</th><th>Saabunud</th><th>Saabunud, tagasi lükatud</th><th>Saadetud</th><th>Saatmine ebaõnnestus</th></tr>'+(ml.length?ml.map(([n,x])=>`<tr><td>${n}</td><td>${fmt(x.in)}</td><td class="${x.inBad?'bad':''}">${fmt(x.inBad)}</td><td>${fmt(x.out)}</td><td class="${x.outBad?'bad':''}">${fmt(x.outBad)}</td></tr>`).join(''):'<tr><td>Sõnumeid ei ole veel olnud.</td></tr>');
   // deploy
