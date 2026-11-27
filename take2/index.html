@@ -44,6 +44,10 @@ svg{width:100%;height:auto;display:block}
 <div class="card"><table id="types"></table>
 <div class="note">CTUD = CheckTransportUndertakingData, CGR = CheckGoodRepute, NU = NotifyUnfitness, NCR = NotifyCheckResult, RSI = RoadSideInspection. „Vastu võetud" on ERRU-sse jõudnud päringud (202), „vastus saadetud" on Hubile läinud vastus või kviitung. CGR/CTUD vastus tuleb järjekorra töötajalt, NU/NCR/RSI kviitung kohe.</div></div>
 
+<h2>Kõik ERRU sõnumid nime järgi</h2>
+<div class="card"><table id="msgs"></table>
+<div class="note">„Saabunud" = Hubilt meile tulnud sõnum, „saadetud" = meie Hubisse saadetud sõnum (nii päringud kui vastused ja kviitungid). Kasutaja käsitsi saadetud päring (UI) näitab siin ühe saadetud päringu ja hiljem saabunud vastuse.</div></div>
+
 <h2>Enne testi: mis on testis peal</h2>
 <div class="card"><table id="deploy"></table>
 <div class="note" id="deploynote"></div></div>
@@ -90,6 +94,8 @@ fetch('data.json?'+Date.now()).then(r=>r.json()).then(d=>{
   // päringuliigid
   const tl=Object.entries(d.byType||{});
   $('types').innerHTML='<tr><th>Liik</th><th>Vastu võetud</th><th>Vastus saadetud</th><th>Aegunud</th><th>Uuesti järjekorda</th><th>Ebaõnnestunud</th><th>Tagasi lükatud (5xx)</th></tr>'+tl.map(([c,x])=>`<tr><td><b>${c}</b></td><td>${fmt(x.received)}</td><td class="${x.received&&!x.answered?'bad':''}">${fmt(x.answered)}</td><td class="${x.expired?'bad':''}">${fmt(x.expired)}</td><td class="${x.retry?'bad':''}">${fmt(x.retry)}</td><td class="${x.failed?'bad':''}">${fmt(x.failed)}</td><td class="${x.rejected?'bad':''}">${fmt(x.rejected)}</td></tr>`).join('');
+  const ml=Object.entries(d.byMessage||{}).sort();
+  $('msgs').innerHTML='<tr><th>Sõnum</th><th>Saabunud</th><th>Saabunud, tagasi lükatud</th><th>Saadetud</th><th>Saatmine ebaõnnestus</th></tr>'+(ml.length?ml.map(([n,x])=>`<tr><td>${n}</td><td>${fmt(x.in)}</td><td class="${x.inBad?'bad':''}">${fmt(x.inBad)}</td><td>${fmt(x.out)}</td><td class="${x.outBad?'bad':''}">${fmt(x.outBad)}</td></tr>`).join(''):'<tr><td>Sõnumeid ei ole veel olnud.</td></tr>');
   // deploy
   const short=i=>i.replace(/^.*\//,'').replace(/@sha256:.*$/,'').slice(0,40);
   const dep=Object.entries(d.deploy||{});
