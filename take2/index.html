@@ -44,6 +44,20 @@ svg{width:100%;height:auto;display:block}
 <div class="card"><table id="types"></table>
 <div class="note">CTUD = CheckTransportUndertakingData, CGR = CheckGoodRepute, NU = NotifyUnfitness, NCR = NotifyCheckResult, RSI = RoadSideInspection. „Vastu võetud" on ERRU-sse jõudnud päringud (202), „vastus saadetud" on Hubile läinud vastus või kviitung. CGR/CTUD vastus tuleb järjekorra töötajalt, NU/NCR/RSI kviitung kohe.</div></div>
 
+<h2>CGR ja CTUD: kuhu aeg kaob</h2>
+<div class="card" id="ccSum"></div>
+<div class="card" style="margin-top:10px"><b>Ühe päringu töö hind (mediaan, ms)</b><table id="ccStages"></table>
+<div class="note">Mõõdetud Ruuter-internal'i logist. „Sisenemine" on kinnitamine (202) enne järjekorda. Järgmised read on töötaja sees. Järjekorras ootamist ei saa üksiku päringu kohta mõõta, sest logis puudub päringu tunnus (vt XTR ettepanek).</div></div>
+<div class="card" style="margin-top:10px"><b>CGR+CTUD: kui paljud said vastuse (5 min)</b>
+<div class="legend"><span><i style="background:var(--s3)"></i>Vastus saadetud</span><span><i style="background:var(--crit)"></i>Vastust ei tulnud (aegus järjekorras)</span></div>
+<svg id="ccLoad" viewBox="0 0 960 200" role="img" aria-label="CGR ja CTUD vastatud ja vastamata"></svg></div>
+<div class="card" style="margin-top:10px"><b>Cron'i käivitusi (5 min)</b>
+<div class="legend"><span><i style="background:var(--s1)"></i>Käivitusi</span><span><i style="background:var(--grid);border:1px solid var(--axis)"></i>300 = käivitus igal sekundil</span></div>
+<svg id="ccRuns" viewBox="0 0 960 170" role="img" aria-label="Cron käivituste arv"></svg></div>
+<div class="card" style="margin-top:10px"><b>Käivituse kestus ja andmebaasi päring (mediaan, ms)</b>
+<div class="legend"><span><i style="background:var(--s2)"></i>Cron'i käivituse kestus</span><span><i style="background:var(--s1)"></i>claim-due päring andmebaasis</span></div>
+<svg id="ccMs" viewBox="0 0 960 170" role="img" aria-label="Käivituse kestus ja claim-due"></svg></div>
+
 <h2>Kõik ERRU sõnumid nime järgi</h2>
 <div class="card"><table id="msgs"></table>
 <div class="note">„Saabunud" = Hubilt meile tulnud sõnum, „saadetud" = meie Hubisse saadetud sõnum (nii päringud kui vastused ja kviitungid). Kasutaja käsitsi saadetud päring (UI) näitab siin ühe saadetud päringu ja hiljem saabunud vastuse.</div></div>
@@ -96,6 +110,32 @@ fetch('data.json?'+Date.now()).then(r=>r.json()).then(d=>{
   $('types').innerHTML='<tr><th>Liik</th><th>Vastu võetud</th><th>Vastus saadetud</th><th>Aegunud</th><th>Uuesti järjekorda</th><th>Ebaõnnestunud</th><th>Tagasi lükatud (mitte 202)</th></tr>'+tl.map(([c,x])=>`<tr><td><b>${c}</b></td><td>${fmt(x.received)}</td><td class="${x.received&&!x.answered?'bad':''}">${fmt(x.answered)}</td><td class="${x.expired?'bad':''}">${fmt(x.expired)}</td><td class="${x.retry?'bad':''}">${fmt(x.retry)}</td><td class="${x.failed?'bad':''}">${fmt(x.failed)}</td><td class="${x.rejected?'bad':''}">${fmt(x.rejected)}</td></tr>`).join('');
   const ml=Object.entries(d.byMessage||{}).sort();
   $('msgs').innerHTML='<tr><th>Sõnum</th><th>Saabunud</th><th>Saabunud, tagasi lükatud</th><th>Saadetud</th><th>Saatmine ebaõnnestus</th></tr>'+(ml.length?ml.map(([n,x])=>`<tr><td>${n}</td><td>${fmt(x.in)}</td><td class="${x.inBad?'bad':''}">${fmt(x.inBad)}</td><td>${fmt(x.out)}</td><td class="${x.outBad?'bad':''}">${fmt(x.outBad)}</td></tr>`).join(''):'<tr><td>Sõnumeid ei ole veel olnud.</td></tr>');
+  // CGR/CTUD ajakulu
+  const cc=d.cc, tm=i=>hm(Date.parse(d.runFrom)+i*d.bucketSec*1000), N=nb;
+  const axis=(top,Hh,Tp2,ph2,L2,Wd)=>{let a='';for(let i=0;i<=4;i++){const y=Tp2+ph2-ph2*i/4;a+=`<line x1="${L2}" x2="${Wd-6}" y1="${y}" y2="${y}" stroke="var(--grid)"/><text x="${L2-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--ink2)">${fmt(Math.round(top*i/4))}</text>`;}
+    const ev2=Math.ceil(N/12);for(let i=0;i<N;i+=ev2)a+=`<text x="${L2+(i+.5)*(Wd-L2-6)/N}" y="${Hh-6}" text-anchor="middle" font-size="11" fill="var(--ink2)">${tm(i)}</text>`;return a;};
+  const nice=m=>{const st=Math.pow(10,Math.floor(Math.log10(Math.max(1,m))));return Math.ceil(m/st)*st;};
+  const A=cc.accepted, S=cc.answered, M=A.map((a,i)=>Math.max(0,a-S[i]));
+  const ccTot=sum(A), ccAns=sum(S), ccLost=ccTot-ccAns;
+  const loaded=A.map((a,i)=>a>=800?i:-1).filter(i=>i>=0);
+  const peakIn=loaded.length?sum(loaded.map(i=>A[i]))/loaded.length/d.bucketSec:0, peakOut=loaded.length?sum(loaded.map(i=>S[i]))/loaded.length/d.bucketSec:0;
+  const st=cc.stages, workerSum=(st.callInbound||0)+(st.sendAnswer||0)+(st.finish||0);
+  $('ccSum').innerHTML=`<div class="tiles" style="margin:0 0 8px"><div class="tile"><b>${fmt(ccTot)}</b><span>CGR+CTUD vastu võetud</span></div><div class="tile"><b class="ok">${fmt(ccAns)}</b><span>vastus saadetud (${(100*ccAns/Math.max(1,ccTot)).toFixed(1)}%)</span></div><div class="tile"><b class="bad">${fmt(ccLost)}</b><span>vastust ei tulnud (${(100*ccLost/Math.max(1,ccTot)).toFixed(1)}%)</span></div><div class="tile"><b>${peakIn.toFixed(1)} / ${peakOut.toFixed(1)}</b><span>tippkoormusel saabub / saadetakse vastuseid sekundis</span></div></div>`+
+    `<div class="note" style="margin:0">Tippkoormusel (≥800 päringut 5 min jooksul) saabub ${peakIn.toFixed(1)} päringut sekundis, vastuseid saadetakse ${peakOut.toFixed(1)} sekundis. Vahe kaob järjekorras: rida aegub enne, kui töötaja selle võtab. Ühe päringu töö võtab töötajal ${st.worker} ms, millest ${st.sendAnswer} ms (${Math.round(100*st.sendAnswer/Math.max(1,st.worker))}%) on vastuse saatmine Hubile.</div>`;
+  const stRows=[['Sisenemine (kinnitus 202, enne järjekorda)',st.accept,st.accept95],['Töötaja: vastuse koostamine (callInbound)',st.callInbound,st.callInbound95],['Töötaja: vastuse saatmine Hubile (sendAnswer)',st.sendAnswer,st.sendAnswer95],['Töötaja: lõpetamine (markProcessed)',st.finish,st.finish95],['Töötaja kokku (sh muu: '+Math.max(0,Math.round(st.worker-workerSum))+' ms)',st.worker,st.worker95]];
+  const mx=Math.max(...stRows.map(r=>r[1]||0));
+  $('ccStages').innerHTML='<tr><th>Etapp</th><th>p50, ms</th><th>p95, ms</th><th style="width:40%"></th></tr>'+stRows.map(([n,a,b],i)=>`<tr><td>${n}</td><td>${a??'–'}</td><td>${b??'–'}</td><td><div style="height:10px;border-radius:2px;background:${i==2?'var(--s2)':'var(--s1)'};width:${Math.round(100*(a||0)/mx)}%"></div></td></tr>`).join('');
+  {const Wd=960,Hh=200,L2=44,Tp2=8,ph2=Hh-30,top=nice(Math.max(...A)),bw2=(Wd-L2-6)/N;let g=axis(top,Hh,Tp2,ph2,L2,Wd);
+    A.forEach((a,i)=>{const x=L2+i*bw2+1,w=Math.max(1,bw2-2),hS=ph2*S[i]/top,hM=ph2*M[i]/top;
+      g+=`<rect x="${x}" y="${Tp2+ph2-hS}" width="${w}" height="${hS}" fill="var(--s3)"><title>${tm(i)} · vastatud ${S[i]}, vastamata ${M[i]}</title></rect><rect x="${x}" y="${Tp2+ph2-hS-hM-2}" width="${w}" height="${hM}" fill="var(--crit)"><title>${tm(i)} · vastatud ${S[i]}, vastamata ${M[i]}</title></rect>`;});
+    $('ccLoad').innerHTML=g;}
+  {const Wd=960,Hh=170,L2=44,Tp2=8,ph2=Hh-30,R=d.cron.runs,top=300,bw2=(Wd-L2-6)/N;let g=axis(top,Hh,Tp2,ph2,L2,Wd);
+    g+=`<line x1="${L2}" x2="${Wd-6}" y1="${Tp2}" y2="${Tp2}" stroke="var(--axis)" stroke-dasharray="4 3"/>`;
+    R.forEach((v,i)=>{const hh=ph2*v/top;g+=`<rect x="${L2+i*bw2+1}" y="${Tp2+ph2-hh}" width="${Math.max(1,bw2-2)}" height="${hh}" fill="var(--s1)"><title>${tm(i)} · ${v} käivitust</title></rect>`;});
+    $('ccRuns').innerHTML=g;}
+  {const Wd=960,Hh=170,L2=44,Tp2=8,ph2=Hh-30,a1=cc.cronP50,a2=cc.claimDbP50,top=nice(Math.max(...a1.map(v=>v||0),...a2.map(v=>v||0))),bw2=(Wd-L2-6)/N;let g=axis(top,Hh,Tp2,ph2,L2,Wd);
+    const line=(a,col)=>{const p=a.map((v,i)=>v==null?null:`${L2+(i+.5)*bw2},${Tp2+ph2-ph2*v/top}`).filter(Boolean);return `<polyline points="${p.join(' ')}" fill="none" stroke="${col}" stroke-width="2"/>`+a.map((v,i)=>v==null?'':`<circle cx="${L2+(i+.5)*bw2}" cy="${Tp2+ph2-ph2*v/top}" r="4" fill="${col}" fill-opacity="0"><title>${tm(i)} · ${v} ms</title></circle>`).join('');};
+    $('ccMs').innerHTML=g+line(a1,'var(--s2)')+line(a2,'var(--s1)');}
   // deploy
   const short=i=>i.replace(/^.*\//,'').replace(/@sha256:.*$/,'').slice(0,40);
   const dep=Object.entries(d.deploy||{});
